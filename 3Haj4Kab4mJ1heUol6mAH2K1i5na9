@@ -1,22 +1,22 @@
-if _G.vagrant_loaded then
+if _G.dokoo_hub_loaded then
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Vagrant Survival",
+            Title = "DokooHub",
             Text = "Script already loaded — reloading...",
             Duration = 3,
         })
     end)
 end
-_G.vagrant_loaded = true
+_G.dokoo_hub_loaded = true
 
 -- Cleanup old GUIs from previous launch
 pcall(function()
     local pg = (type(gethui) == "function" and select(2, pcall(gethui))) or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-    for _, name in ipairs({"VagrantMenu", "VagrantCursor", "VagrantChangelog", "VagrantSplash", "VagrantWrongGame", "VagrantNotif", "VagrantHelpOverlay"}) do
+    for _, name in ipairs({"DokooHubMenu", "DokooHubCursor", "DokooHubChangelog", "DokooHubSplash", "DokooHubWrongGame", "DokooHubNotif", "DokooHubHelpOverlay"}) do
         local old = pg:FindFirstChild(name)
         if old then old:Destroy() end
     end
-    local cc = game:GetService("Lighting"):FindFirstChild("VagrantColorCorrection")
+    local cc = game:GetService("Lighting"):FindFirstChild("DokooHubColorCorrection")
     if cc then cc:Destroy() end
 end)
 
@@ -41,7 +41,7 @@ end
 -- ===================== SPLASH =====================
 local function showSplash()
     local splashGui = Instance.new("ScreenGui")
-    splashGui.Name = "VagrantSplash"
+    splashGui.Name = "DokooHubSplash"
     splashGui.ResetOnSpawn = false
     splashGui.IgnoreGuiInset = true
     splashGui.DisplayOrder = 9999
@@ -59,7 +59,7 @@ local function showSplash()
 
     local ttl = Instance.new("TextLabel")
     ttl.Size = UDim2.new(1, 0, 0, 26); ttl.Position = UDim2.new(0, 0, 0, 14)
-    ttl.BackgroundTransparency = 1; ttl.Text = "Vagrant Survival Best Script"
+    ttl.BackgroundTransparency = 1; ttl.Text = "DokooHub"
     ttl.TextColor3 = Color3.fromRGB(230, 230, 230); ttl.Font = Enum.Font.Ubuntu; ttl.TextSize = 15
     ttl.Parent = card
 
@@ -207,7 +207,7 @@ local VAGRANT_PLACE_ID = 100283815455755
 -- ===================== WRONG GAME ERROR =====================
 local function showWrongGameError()
     local errGui = Instance.new("ScreenGui")
-    errGui.Name = "VagrantWrongGame"
+    errGui.Name = "DokooHubWrongGame"
     errGui.ResetOnSpawn = false
     errGui.IgnoreGuiInset = true
     errGui.DisplayOrder = 2147483647
@@ -225,7 +225,7 @@ local function showWrongGameError()
 
     local ttl = Instance.new("TextLabel")
     ttl.Size = UDim2.new(1, 0, 0, 26); ttl.Position = UDim2.new(0, 0, 0, 14)
-    ttl.BackgroundTransparency = 1; ttl.Text = "Vagrant Survival Best Script"
+    ttl.BackgroundTransparency = 1; ttl.Text = "DokooHub"
     ttl.TextColor3 = Color3.fromRGB(230, 230, 230); ttl.Font = Enum.Font.Ubuntu; ttl.TextSize = 15
     ttl.Parent = card
 
@@ -317,7 +317,7 @@ local function showNotification(title, body, duration, playSound)
     if playSound == nil then playSound = true end
 
     local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "VagrantNotif"
+    notifGui.Name = "DokooHubNotif"
     notifGui.ResetOnSpawn = false
     notifGui.IgnoreGuiInset = true
     notifGui.DisplayOrder = 9998
@@ -476,39 +476,57 @@ do
     end
 end
 
--- ===================== CONFIG =====================
+-- ===================== CONFIG (with DokooHubConfig merge) =====================
+local UserCfg = _G.DokooHubConfig or {}
+
 local Config = {
     ESP = {
-        Enabled = false,
-        MaxDistForHighlight = 500,
-        HighlightColor = Color3.fromRGB(255, 215, 0),
-        OutlineColor = Color3.fromRGB(255, 240, 180),
-        TextColor = Color3.fromRGB(255, 230, 150),
-        TextSize = 14,
-        ShowName = true, ShowHP = true, ShowDistance = true,
+        Enabled = (UserCfg.ESP and UserCfg.ESP.Enabled) or false,
+        MaxDistForHighlight = (UserCfg.ESP and UserCfg.ESP.MaxDistForHighlight) or 500,
+        HighlightColor = (UserCfg.ESP and UserCfg.ESP.HighlightColor) or Color3.fromRGB(255, 215, 0),
+        OutlineColor = (UserCfg.ESP and UserCfg.ESP.OutlineColor) or Color3.fromRGB(255, 240, 180),
+        TextColor = (UserCfg.ESP and UserCfg.ESP.TextColor) or Color3.fromRGB(255, 230, 150),
+        TextSize = (UserCfg.ESP and UserCfg.ESP.TextSize) or 14,
+        ShowName = (UserCfg.ESP and UserCfg.ESP.ShowName) ~= nil and UserCfg.ESP.ShowName or true,
+        ShowHP = (UserCfg.ESP and UserCfg.ESP.ShowHP) ~= nil and UserCfg.ESP.ShowHP or true,
+        ShowDistance = (UserCfg.ESP and UserCfg.ESP.ShowDistance) ~= nil and UserCfg.ESP.ShowDistance or true,
         WhitelistHighlight = {
-            Enabled = true,
-            FillColor = Color3.fromRGB(0, 255, 0),
-            OutlineColor = Color3.fromRGB(255, 255, 255),
+            Enabled = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.Enabled) ~= nil and UserCfg.ESP.WhitelistHighlight.Enabled or true,
+            FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(0, 255, 0),
+            OutlineColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.OutlineColor) or Color3.fromRGB(255, 255, 255),
         },
     },
     Aim = {
-        Enabled = false, FOVRadius = 100, Smoothness = 0.5, MaxDistance = 500,
-        MinDot = 0.1, MaxMovePerFrame = 60, AimPart = "Head",
+        Enabled = (UserCfg.Aim and UserCfg.Aim.Enabled) or false,
+        FOVRadius = (UserCfg.Aim and UserCfg.Aim.FOVRadius) or 100,
+        Smoothness = (UserCfg.Aim and UserCfg.Aim.Smoothness) or 0.5,
+        MaxDistance = (UserCfg.Aim and UserCfg.Aim.MaxDistance) or 500,
+        MinDot = (UserCfg.Aim and UserCfg.Aim.MinDot) or 0.1,
+        MaxMovePerFrame = (UserCfg.Aim and UserCfg.Aim.MaxMovePerFrame) or 60,
+        AimPart = (UserCfg.Aim and UserCfg.Aim.AimPart) or "Head",
         Whitelist = {},
     },
-    InfiniteJump = { Enabled = false },
-    ForceSpeed = { Enabled = false, Speed = 24, SprintForce = false },
-    Cursor = { Enabled = false, ImageId = "", Size = 32, HideDefault = true },
-    Spectate = { AutoSwitchOnDeath = true },
-    HelpGuis = { OverlayBind = Enum.KeyCode.F2 },
-    Lighting = {
-        FogColor = Color3.fromRGB(192, 192, 192),
-        LightColor = Color3.fromRGB(255, 255, 255),
-        Brightness = 2,
-        Enabled = false,
+    InfiniteJump = { Enabled = (UserCfg.InfiniteJump and UserCfg.InfiniteJump.Enabled) or false },
+    ForceSpeed = {
+        Enabled = (UserCfg.ForceSpeed and UserCfg.ForceSpeed.Enabled) or false,
+        Speed = (UserCfg.ForceSpeed and UserCfg.ForceSpeed.Speed) or 24,
+        SprintForce = (UserCfg.ForceSpeed and UserCfg.ForceSpeed.SprintForce) or false,
     },
-    Font = "Silkscreen",
+    Cursor = {
+        Enabled = (UserCfg.Cursor and UserCfg.Cursor.Enabled) or false,
+        ImageId = (UserCfg.Cursor and UserCfg.Cursor.ImageId) or "",
+        Size = (UserCfg.Cursor and UserCfg.Cursor.Size) or 32,
+        HideDefault = (UserCfg.Cursor and UserCfg.Cursor.HideDefault) ~= nil and UserCfg.Cursor.HideDefault or true,
+    },
+    Spectate = { AutoSwitchOnDeath = (UserCfg.Spectate and UserCfg.Spectate.AutoSwitchOnDeath) ~= nil and UserCfg.Spectate.AutoSwitchOnDeath or true },
+    HelpGuis = { OverlayBind = (UserCfg.HelpGuis and UserCfg.HelpGuis.OverlayBind) or Enum.KeyCode.F2 },
+    Lighting = {
+        FogColor = (UserCfg.Lighting and UserCfg.Lighting.FogColor) or Color3.fromRGB(192, 192, 192),
+        LightColor = (UserCfg.Lighting and UserCfg.Lighting.LightColor) or Color3.fromRGB(255, 255, 255),
+        Brightness = (UserCfg.Lighting and UserCfg.Lighting.Brightness) or 2,
+        Enabled = (UserCfg.Lighting and UserCfg.Lighting.Enabled) or false,
+    },
+    Font = (UserCfg.Font) or "Silkscreen",
 }
 
 local function applyLighting()
@@ -537,19 +555,17 @@ local function applyLighting()
                 atm.Offset = _origAtmosphere.Offset
             end)
         end
-        local cc = Lighting:FindFirstChild("VagrantColorCorrection")
+        local cc = Lighting:FindFirstChild("DokooHubColorCorrection")
         if cc then cc:Destroy() end
         return
     end
 
-    -- Fog (legacy)
     pcall(function()
         Lighting.FogColor = cfg.FogColor
         Lighting.FogStart = 0
         Lighting.FogEnd = 100000
     end)
 
-    -- Atmosphere (modern fog)
     local atm = Lighting:FindFirstChildOfClass("Atmosphere")
     if atm then
         pcall(function()
@@ -561,7 +577,6 @@ local function applyLighting()
         end)
     end
 
-    -- Ambient / light
     pcall(function()
         Lighting.Ambient = cfg.LightColor
         Lighting.OutdoorAmbient = cfg.LightColor
@@ -569,16 +584,14 @@ local function applyLighting()
         Lighting.ColorShift_Bottom = cfg.LightColor
     end)
 
-    -- Brightness
     pcall(function()
         Lighting.Brightness = cfg.Brightness
     end)
 
-    -- ColorCorrection (гарантированно видимый эффект)
-    local cc = Lighting:FindFirstChild("VagrantColorCorrection")
+    local cc = Lighting:FindFirstChild("DokooHubColorCorrection")
     if not cc then
         cc = Instance.new("ColorCorrectionEffect")
-        cc.Name = "VagrantColorCorrection"
+        cc.Name = "DokooHubColorCorrection"
         cc.Parent = Lighting
     end
     cc.TintColor = cfg.LightColor
@@ -606,12 +619,12 @@ local function colorToStr(c)
         math.floor(c.B * 255 + 0.5))
 end
 
--- Overlay creation (now Config exists)
+-- Overlay creation
 local function createOverlay()
     if HelpGuis.OverlayGui then pcall(function() HelpGuis.OverlayGui:Destroy() end) end
 
     local og = Instance.new("ScreenGui")
-    og.Name = "VagrantHelpOverlay"
+    og.Name = "DokooHubHelpOverlay"
     og.ResetOnSpawn = false
     og.IgnoreGuiInset = true
     og.DisplayOrder = 9997
@@ -632,7 +645,7 @@ local function createOverlay()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 20); title.Position = UDim2.new(0, 0, 0, 6)
     title.BackgroundTransparency = 1
-    title.Text = "Vagrant Stats — F2"
+    title.Text = "DokooHub Stats — F2"
     title.TextColor3 = Color3.fromRGB(255, 215, 0)
     title.Font = Enum.Font.Ubuntu; title.TextSize = 12
     title.Parent = frame
@@ -682,7 +695,6 @@ local function createOverlay()
     HelpGuis.OverlayPlayersScroll = scroll
     HelpGuis.OverlayPlayersLayout = scrollLayout
 
-    -- Update stats
     task.spawn(function()
         while HelpGuis.OverlayGui and HelpGuis.OverlayGui.Parent do
             task.wait(0.5)
@@ -692,7 +704,6 @@ local function createOverlay()
         end
     end)
 
-    -- Update players list (без дублей)
     task.spawn(function()
         while HelpGuis.OverlayGui and HelpGuis.OverlayGui.Parent do
             task.wait(1)
@@ -701,7 +712,6 @@ local function createOverlay()
 
             if not Config or not Config.Aim then continue end
 
-            -- Универсальная очистка: всё кроме UIListLayout
             for _, child in ipairs(scrollFrame:GetChildren()) do
                 if not child:IsA("UIListLayout") then
                     child:Destroy()
@@ -782,7 +792,6 @@ local function setOverlayEnabled(state)
     end
 end
 
--- Force-apply lighting every 0.1s
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -847,10 +856,10 @@ local cursorGui, cursorImage
 local function createCursorGui()
     if cursorGui then pcall(function() cursorGui:Destroy() end) end
     local pg = getHighestGuiParent()
-    if pg:FindFirstChild("VagrantCursor") then pcall(function() pg.VagrantCursor:Destroy() end) end
+    if pg:FindFirstChild("DokooHubCursor") then pcall(function() pg.DokooHubCursor:Destroy() end) end
 
     cursorGui = Instance.new("ScreenGui")
-    cursorGui.Name = "VagrantCursor"
+    cursorGui.Name = "DokooHubCursor"
     cursorGui.ResetOnSpawn = false
     cursorGui.IgnoreGuiInset = false
     cursorGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -917,7 +926,7 @@ task.spawn(function()
 end)
 
 local clGui = Instance.new("ScreenGui")
-clGui.Name = "VagrantChangelog"
+clGui.Name = "DokooHubChangelog"
 clGui.ResetOnSpawn = false
 clGui.IgnoreGuiInset = true
 clGui.DisplayOrder = 101
@@ -1057,7 +1066,7 @@ local function updateESP(player)
     if distance < Config.ESP.MaxDistForHighlight then
         if not espHighlights[player] or not espHighlights[player].Parent then
             local h = Instance.new("Highlight")
-            h.Name = "VagrantESP_Highlight"; h.Adornee = character
+            h.Name = "DokooHubESP_Highlight"; h.Adornee = character
             h.FillColor = fillCol; h.OutlineColor = outlineCol
             h.FillTransparency = 0.5; h.OutlineTransparency = 0
             h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -1079,7 +1088,7 @@ local function updateESP(player)
 
     if not espBillboards[player] or not espBillboards[player].Parent then
         local b = Instance.new("BillboardGui")
-        b.Name = "VagrantESP_Billboard"
+        b.Name = "DokooHubESP_Billboard"
         b.Adornee = character:FindFirstChild("Head") or rootPart
         b.Size = UDim2.new(0, 200, 0, 60); b.StudsOffset = Vector3.new(0, 3, 0)
         b.AlwaysOnTop = true; b.MaxDistance = math.huge
@@ -1250,7 +1259,7 @@ local function setupForceSpeed()
     local hrp = getHRP()
     if not hrp then return end
     local part = Instance.new("Part")
-    part.Name = "VagrantForceSpeed"
+    part.Name = "DokooHubForceSpeed"
     part.Size = Vector3.new(0.1, 0.1, 0.1)
     part.Transparency = 1
     part.CanCollide = false
@@ -1312,6 +1321,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     if Config.ForceSpeed.Enabled then setupForceSpeed() end
 end)
 
+-- ===================== SPECTATE =====================
 local Spectate = { Enabled = false, Target = nil, PrevSubject = nil, PrevType = nil }
 
 local function getSpectateList()
@@ -1384,11 +1394,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local oldMenu = guiParent:FindFirstChild("VagrantMenu")
+local oldMenu = guiParent:FindFirstChild("DokooHubMenu")
 if oldMenu then oldMenu:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "VagrantMenu"
+screenGui.Name = "DokooHubMenu"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -1463,7 +1473,7 @@ local tbCorner = Instance.new("UICorner"); tbCorner.CornerRadius = UDim.new(0, 1
 local titleLbl = Instance.new("TextLabel")
 titleLbl.Size = UDim2.new(1, -12, 0, 26); titleLbl.Position = UDim2.new(0, 12, 0, 2)
 titleLbl.BackgroundTransparency = 1
-titleLbl.Text = "Vagrant Survival Best Script"
+titleLbl.Text = "DokooHub"
 titleLbl.TextSize = 15
 titleLbl.TextColor3 = Theme.Text
 titleLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -2281,7 +2291,7 @@ end)
 makeSectionHeader(helpTab, "INFO")
 local infoLbl = Instance.new("TextLabel")
 infoLbl.Size = UDim2.new(1, -10, 0, 60); infoLbl.BackgroundTransparency = 1
-infoLbl.Text = "HelpGuis — shows real FPS and ping.\nOverlay can be dragged with the mouse.\nDefault bind: F2 (can be changed above)."
+infoLbl.Text = "DokooHub — shows real FPS and ping.\nOverlay can be dragged with the mouse.\nDefault bind: F2 (can be changed above)."
 infoLbl.TextColor3 = Color3.fromRGB(190, 190, 190)
 infoLbl.TextSize = 11
 infoLbl.TextWrapped = true
@@ -2422,6 +2432,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.F1 then setMenuOpen(not menuOpen) end
 end)
 
-print("[Vagrant Survival Best Script by Dokoo2] Loaded. F1 to toggle menu, F2 to toggle stats overlay.")
+print("[DokooHub by Dokoo2] Loaded. F1 to toggle menu, F2 to toggle stats overlay.")
 
-showNotification("Vagrant Survival", "Script successfully loaded", 5, false)
+showNotification("DokooHub", "Script successfully loaded", 5, false)
