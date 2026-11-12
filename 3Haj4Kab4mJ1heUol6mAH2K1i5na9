@@ -483,17 +483,24 @@ local Config = {
     ESP = {
         Enabled = (UserCfg.ESP and UserCfg.ESP.Enabled) or false,
         MaxDistForHighlight = (UserCfg.ESP and UserCfg.ESP.MaxDistForHighlight) or 500,
-        HighlightColor = (UserCfg.ESP and UserCfg.ESP.HighlightColor) or Color3.fromRGB(255, 215, 0),
-        OutlineColor = (UserCfg.ESP and UserCfg.ESP.OutlineColor) or Color3.fromRGB(255, 240, 180),
+        HighlightColor = (UserCfg.ESP and UserCfg.ESP.HighlightColor) or Color3.fromRGB(0, 255, 0),
+        OutlineColor = (UserCfg.ESP and UserCfg.ESP.OutlineColor) or Color3.fromRGB(0, 255, 0),
         TextColor = (UserCfg.ESP and UserCfg.ESP.TextColor) or Color3.fromRGB(255, 230, 150),
         TextSize = (UserCfg.ESP and UserCfg.ESP.TextSize) or 14,
         ShowName = (UserCfg.ESP and UserCfg.ESP.ShowName) ~= nil and UserCfg.ESP.ShowName or true,
         ShowHP = (UserCfg.ESP and UserCfg.ESP.ShowHP) ~= nil and UserCfg.ESP.ShowHP or true,
         ShowDistance = (UserCfg.ESP and UserCfg.ESP.ShowDistance) ~= nil and UserCfg.ESP.ShowDistance or true,
+        WallCheck = (UserCfg.ESP and UserCfg.ESP.WallCheck) ~= nil and UserCfg.ESP.WallCheck or true,
+        WallCheckColors = {
+            VisibleEnemy = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.VisibleEnemy) or Color3.fromRGB(0, 255, 0),
+            BehindWallEnemy = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.BehindWallEnemy) or Color3.fromRGB(255, 50, 50),
+            Teammate = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.Teammate) or Color3.fromRGB(255, 215, 0),
+            TeammateOutline = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.TeammateOutline) or Color3.fromRGB(255, 240, 180),
+        },
         WhitelistHighlight = {
             Enabled = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.Enabled) ~= nil and UserCfg.ESP.WhitelistHighlight.Enabled or true,
-            FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(0, 255, 0),
-            OutlineColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.OutlineColor) or Color3.fromRGB(255, 255, 255),
+            FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(255, 215, 0),
+            OutlineColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.OutlineColor) or Color3.fromRGB(255, 240, 180),
         },
     },
     Aim = {
@@ -1039,6 +1046,30 @@ local function buildESPLabelText(player, humanoid, distance)
     return table.concat(lines, "\n")
 end
 
+-- ===================== VISIBILITY (WallCheck) =====================
+local function isVisible(targetPart, ignoreChar)
+    local myChar = LocalPlayer.Character
+    if not myChar then return true end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetPart then return true end
+
+    local origin = myRoot.Position
+    local direction = targetPart.Position - origin
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local exclude = { myChar }
+    if ignoreChar then table.insert(exclude, ignoreChar) end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then table.insert(exclude, p.Character) end
+    end
+    params.FilterDescendantsInstances = exclude
+    params.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, params)
+    return result == nil
+end
+
 local function updateESP(player)
     if player == LocalPlayer then return end
     if not Config.ESP.Enabled then cleanupESPForPlayer(player); return end
@@ -1052,15 +1083,25 @@ local function updateESP(player)
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local distance = myRoot and (rootPart.Position - myRoot.Position).Magnitude or 0
 
-    local isWhitelisted = Config.Aim.Whitelist[player.Name] == true
-    local useWLColors = isWhitelisted and Config.ESP.WhitelistHighlight.Enabled
+    local isTeammate = Config.Aim.Whitelist[player.Name] == true
     local fillCol, outlineCol
-    if useWLColors then
-        fillCol = Config.ESP.WhitelistHighlight.FillColor
-        outlineCol = Config.ESP.WhitelistHighlight.OutlineColor
+
+    if isTeammate and Config.ESP.WhitelistHighlight.Enabled then
+        fillCol = Config.ESP.WallCheckColors.Teammate
+        outlineCol = Config.ESP.WallCheckColors.TeammateOutline
     else
-        fillCol = Config.ESP.HighlightColor
-        outlineCol = Config.ESP.OutlineColor
+        local visible = true
+        if Config.ESP.WallCheck then
+            local targetPart = character:FindFirstChild("Head") or rootPart
+            visible = isVisible(targetPart, character)
+        end
+        if visible then
+            fillCol = Config.ESP.WallCheckColors.VisibleEnemy
+            outlineCol = Config.ESP.WallCheckColors.VisibleEnemy
+        else
+            fillCol = Config.ESP.WallCheckColors.BehindWallEnemy
+            outlineCol = Config.ESP.WallCheckColors.BehindWallEnemy
+        end
     end
 
     if distance < Config.ESP.MaxDistForHighlight then
@@ -2053,6 +2094,9 @@ makeSectionHeader(gameCustTab, "ESP")
 makeToggle(gameCustTab, "ESP Enabled",
     function() return Config.ESP.Enabled end,
     function(v) Config.ESP.Enabled = v end)
+makeToggle(gameCustTab, "ESP WallCheck (red if behind wall)",
+    function() return Config.ESP.WallCheck end,
+    function(v) Config.ESP.WallCheck = v end)
 makeSlider(gameCustTab, "Highlight distance", 50, 2000,
     function() return Config.ESP.MaxDistForHighlight end,
     function(v) Config.ESP.MaxDistForHighlight = v end, true)
