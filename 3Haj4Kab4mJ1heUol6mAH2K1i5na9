@@ -9,7 +9,6 @@ if _G.dokoo_hub_loaded then
 end
 _G.dokoo_hub_loaded = true
 
--- Cleanup old GUIs from previous launch
 pcall(function()
     local pg = (type(gethui) == "function" and select(2, pcall(gethui))) or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     for _, name in ipairs({"DokooHubMenu", "DokooHubCursor", "DokooHubChangelog", "DokooHubSplash", "DokooHubWrongGame", "DokooHubNotif", "DokooHubHelpOverlay"}) do
@@ -490,13 +489,6 @@ local Config = {
         ShowName = (UserCfg.ESP and UserCfg.ESP.ShowName) ~= nil and UserCfg.ESP.ShowName or true,
         ShowHP = (UserCfg.ESP and UserCfg.ESP.ShowHP) ~= nil and UserCfg.ESP.ShowHP or true,
         ShowDistance = (UserCfg.ESP and UserCfg.ESP.ShowDistance) ~= nil and UserCfg.ESP.ShowDistance or true,
-        WallCheck = (UserCfg.ESP and UserCfg.ESP.WallCheck) ~= nil and UserCfg.ESP.WallCheck or true,
-        WallCheckColors = {
-            VisibleEnemy = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.VisibleEnemy) or Color3.fromRGB(0, 255, 0),
-            BehindWallEnemy = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.BehindWallEnemy) or Color3.fromRGB(255, 50, 50),
-            Teammate = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.Teammate) or Color3.fromRGB(255, 215, 0),
-            TeammateOutline = (UserCfg.ESP and UserCfg.ESP.WallCheckColors and UserCfg.ESP.WallCheckColors.TeammateOutline) or Color3.fromRGB(255, 240, 180),
-        },
         WhitelistHighlight = {
             Enabled = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.Enabled) ~= nil and UserCfg.ESP.WhitelistHighlight.Enabled or true,
             FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(255, 215, 0),
@@ -511,6 +503,7 @@ local Config = {
         MinDot = (UserCfg.Aim and UserCfg.Aim.MinDot) or 0.1,
         MaxMovePerFrame = (UserCfg.Aim and UserCfg.Aim.MaxMovePerFrame) or 60,
         AimPart = (UserCfg.Aim and UserCfg.Aim.AimPart) or "Head",
+        WallCheck = (UserCfg.Aim and UserCfg.Aim.WallCheck) or false,
         Whitelist = {},
     },
     InfiniteJump = { Enabled = (UserCfg.InfiniteJump and UserCfg.InfiniteJump.Enabled) or false },
@@ -1018,56 +1011,17 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if input.KeyCode == Enum.KeyCode.Escape and clGui.Enabled then closeChangelog() end
 end)
 
-local espHighlights, espBillboards = {}, {}
+local espHighlights, espBillboards, espHPBars = {}, {}, {}
 
 local function cleanupESPForPlayer(player)
     if espHighlights[player] then espHighlights[player]:Destroy(); espHighlights[player] = nil end
     if espBillboards[player] then espBillboards[player]:Destroy(); espBillboards[player] = nil end
+    if espHPBars[player] then espHPBars[player]:Destroy(); espHPBars[player] = nil end
 end
 
 local function colorToRichTag(c)
     return string.format("rgb(%d,%d,%d)",
         math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
-end
-
-local function buildESPLabelText(player, humanoid, distance)
-    local lines = {}
-    if Config.ESP.ShowName then
-        table.insert(lines, string.format('<font color="%s">%s</font>', colorToRichTag(Config.ESP.NameColor or Config.ESP.TextColor), player.Name))
-    end
-    if Config.ESP.ShowHP then
-        table.insert(lines, string.format('<font color="%s">HP: %d/%d</font>',
-            colorToRichTag(Config.ESP.HPColor or Config.ESP.TextColor), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth)))
-    end
-    if Config.ESP.ShowDistance then
-        table.insert(lines, string.format('<font color="%s">Distance: %d studs</font>',
-            colorToRichTag(Config.ESP.DistanceColor or Config.ESP.TextColor), math.floor(distance)))
-    end
-    return table.concat(lines, "\n")
-end
-
--- ===================== VISIBILITY (WallCheck) =====================
-local function isVisible(targetPart, ignoreChar)
-    local myChar = LocalPlayer.Character
-    if not myChar then return true end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot or not targetPart then return true end
-
-    local origin = myRoot.Position
-    local direction = targetPart.Position - origin
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    local exclude = { myChar }
-    if ignoreChar then table.insert(exclude, ignoreChar) end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character then table.insert(exclude, p.Character) end
-    end
-    params.FilterDescendantsInstances = exclude
-    params.IgnoreWater = true
-
-    local result = workspace:Raycast(origin, direction, params)
-    return result == nil
 end
 
 local function updateESP(player)
@@ -1077,7 +1031,8 @@ local function updateESP(player)
     if not character or not character.Parent then cleanupESPForPlayer(player); return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
+    local head = character:FindFirstChild("Head")
+    if not humanoid or not rootPart or not head then return end
 
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -1087,23 +1042,14 @@ local function updateESP(player)
     local fillCol, outlineCol
 
     if isTeammate and Config.ESP.WhitelistHighlight.Enabled then
-        fillCol = Config.ESP.WallCheckColors.Teammate
-        outlineCol = Config.ESP.WallCheckColors.TeammateOutline
+        fillCol = Config.ESP.WhitelistHighlight.FillColor
+        outlineCol = Config.ESP.WhitelistHighlight.OutlineColor
     else
-        local visible = true
-        if Config.ESP.WallCheck then
-            local targetPart = character:FindFirstChild("Head") or rootPart
-            visible = isVisible(targetPart, character)
-        end
-        if visible then
-            fillCol = Config.ESP.WallCheckColors.VisibleEnemy
-            outlineCol = Config.ESP.WallCheckColors.VisibleEnemy
-        else
-            fillCol = Config.ESP.WallCheckColors.BehindWallEnemy
-            outlineCol = Config.ESP.WallCheckColors.BehindWallEnemy
-        end
+        fillCol = Config.ESP.HighlightColor
+        outlineCol = Config.ESP.OutlineColor
     end
 
+    -- Highlight (без WallCheck)
     if distance < Config.ESP.MaxDistForHighlight then
         if not espHighlights[player] or not espHighlights[player].Parent then
             local h = Instance.new("Highlight")
@@ -1121,43 +1067,105 @@ local function updateESP(player)
         if espHighlights[player] then espHighlights[player]:Destroy(); espHighlights[player] = nil end
     end
 
-    local anyText = Config.ESP.ShowName or Config.ESP.ShowHP or Config.ESP.ShowDistance
-    if not anyText then
-        if espBillboards[player] then espBillboards[player]:Destroy(); espBillboards[player] = nil end
+    -- Name + Distance над головой (Adornee = Head)
+    local infoBillboard = espBillboards[player]
+    if not infoBillboard or not infoBillboard.Parent then
+        infoBillboard = Instance.new("BillboardGui")
+        infoBillboard.Name = "DokooHubESP_Info"
+        infoBillboard.Adornee = head
+        infoBillboard.Size = UDim2.new(0, 200, 0, 40)
+        infoBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        infoBillboard.AlwaysOnTop = true
+        infoBillboard.MaxDistance = math.huge
+        infoBillboard.Parent = character
+
+        local infoLbl = Instance.new("TextLabel")
+        infoLbl.Name = "InfoLabel"
+        infoLbl.Size = UDim2.new(1, 0, 1, 0)
+        infoLbl.BackgroundTransparency = 1
+        infoLbl.TextColor3 = Config.ESP.TextColor
+        infoLbl.TextStrokeTransparency = 0
+        infoLbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        infoLbl.TextSize = Config.ESP.TextSize
+        infoLbl.Font = Enum.Font.GothamBold
+        infoLbl.TextXAlignment = Enum.TextXAlignment.Center
+        infoLbl.TextYAlignment = Enum.TextYAlignment.Bottom
+        infoLbl.RichText = true
+        infoLbl.Parent = infoBillboard
+
+        espBillboards[player] = infoBillboard
+    end
+
+    if infoBillboard then
+        infoBillboard.Adornee = head
+        infoBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        local lbl = infoBillboard:FindFirstChild("InfoLabel")
+        if lbl then
+            local lines = {}
+            if Config.ESP.ShowName then
+                lines[#lines + 1] = string.format('<font color="%s">%s</font>',
+                    colorToRichTag(Config.ESP.TextColor), player.Name)
+            end
+            if Config.ESP.ShowDistance then
+                lines[#lines + 1] = string.format('<font color="%s">[%d studs]</font>',
+                    colorToRichTag(Config.ESP.TextColor), math.floor(distance))
+            end
+            lbl.TextSize = Config.ESP.TextSize
+            lbl.RichText = true
+            lbl.Text = table.concat(lines, "\n")
+        end
+    end
+
+    -- HP bar слева от игрока
+    if not Config.ESP.ShowHP then
+        if espHPBars[player] then espHPBars[player]:Destroy(); espHPBars[player] = nil end
         return
     end
 
-    if not espBillboards[player] or not espBillboards[player].Parent then
-        local b = Instance.new("BillboardGui")
-        b.Name = "DokooHubESP_Billboard"
-        b.Adornee = character:FindFirstChild("Head") or rootPart
-        b.Size = UDim2.new(0, 200, 0, 60); b.StudsOffset = Vector3.new(0, 3, 0)
-        b.AlwaysOnTop = true; b.MaxDistance = math.huge
-        local l = Instance.new("TextLabel")
-        l.Name = "ESP_Label"; l.Size = UDim2.new(1, 0, 1, 0)
-        l.BackgroundTransparency = 1
-        l.TextColor3 = Config.ESP.TextColor
-        l.TextStrokeTransparency = 0
-        l.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        l.TextSize = Config.ESP.TextSize
-        l.Font = Enum.Font.GothamBold
-        l.TextXAlignment = Enum.TextXAlignment.Center
-        l.TextYAlignment = Enum.TextYAlignment.Center
-        l.RichText = true
-        l.Parent = b
-        b.Parent = character
-        espBillboards[player] = b
+    local hpBillboard = espHPBars[player]
+    if not hpBillboard or not hpBillboard.Parent then
+        hpBillboard = Instance.new("BillboardGui")
+        hpBillboard.Name = "DokooHubESP_HP"
+        hpBillboard.Adornee = rootPart
+        hpBillboard.Size = UDim2.new(0, 4, 0, 30)
+        hpBillboard.StudsOffsetWorldSpace = Vector3.new(-1.2, 1.5, 0)
+        hpBillboard.AlwaysOnTop = true
+        hpBillboard.MaxDistance = math.huge
+        hpBillboard.Parent = character
+
+        local bg = Instance.new("Frame")
+        bg.Name = "BG"
+        bg.Size = UDim2.new(1, 0, 1, 0)
+        bg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        bg.BackgroundTransparency = 0.25
+        bg.BorderSizePixel = 0
+        bg.Parent = hpBillboard
+        local bgc = Instance.new("UICorner"); bgc.CornerRadius = UDim.new(1, 0); bgc.Parent = bg
+
+        local fill = Instance.new("Frame")
+        fill.Name = "Fill"
+        fill.AnchorPoint = Vector2.new(0, 1)
+        fill.Position = UDim2.new(0, 0, 1, 0)
+        fill.Size = UDim2.new(1, 0, 1, 0)
+        fill.BackgroundColor3 = fillCol
+        fill.BorderSizePixel = 0
+        fill.Parent = bg
+        local fc = Instance.new("UICorner"); fc.CornerRadius = UDim.new(1, 0); fc.Parent = fill
+
+        espHPBars[player] = hpBillboard
     end
 
-    local b = espBillboards[player]
-    if b then
-        local l = b:FindFirstChild("ESP_Label")
-        if l then
-            l.TextSize = Config.ESP.TextSize
-            l.RichText = true
-            l.Text = buildESPLabelText(player, humanoid, distance)
+    if hpBillboard then
+        hpBillboard.Adornee = rootPart
+        local bg = hpBillboard:FindFirstChild("BG")
+        if bg then
+            local fill = bg:FindFirstChild("Fill")
+            if fill then
+                local hpRatio = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
+                fill.Size = UDim2.new(1, 0, hpRatio, 0)
+                fill.BackgroundColor3 = fillCol
+            end
         end
-        b.Adornee = character:FindFirstChild("Head") or rootPart
     end
 end
 
@@ -1202,6 +1210,30 @@ local function getScreenPoint(part)
     return Vector2.new(sp.X, sp.Y)
 end
 
+local function isVisible(targetPart, ignoreChar)
+    if not Config.Aim.WallCheck then return true end
+    local myChar = LocalPlayer.Character
+    if not myChar then return true end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetPart then return true end
+
+    local origin = myRoot.Position
+    local direction = targetPart.Position - origin
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local exclude = { myChar }
+    if ignoreChar then table.insert(exclude, ignoreChar) end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then table.insert(exclude, p.Character) end
+    end
+    params.FilterDescendantsInstances = exclude
+    params.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, params)
+    return result == nil
+end
+
 local function collectPlayerTargets()
     local list = {}
     local myChar = LocalPlayer.Character
@@ -1222,6 +1254,7 @@ local function collectPlayerTargets()
         if worldDist > Config.Aim.MaxDistance then continue end
         local dirUnit = (bodyPart.Position - Camera.CFrame.Position).Unit
         if cameraLook:Dot(dirUnit) < Config.Aim.MinDot then continue end
+        if not isVisible(bodyPart, character) then continue end
         table.insert(list, { part = bodyPart, model = character })
     end
     return list
@@ -1877,6 +1910,9 @@ makeSectionHeader(gameTab, "AIMBOT (PLAYERS)")
 makeToggle(gameTab, "Aimbot Enabled",
     function() return Config.Aim.Enabled end,
     function(v) Config.Aim.Enabled = v end)
+makeToggle(gameTab, "WallCheck (only visible targets)",
+    function() return Config.Aim.WallCheck end,
+    function(v) Config.Aim.WallCheck = v end)
 
 local aimPartRow = Instance.new("Frame")
 aimPartRow.Size = UDim2.new(1, 0, 0, 46); aimPartRow.BorderSizePixel = 0
@@ -2094,9 +2130,6 @@ makeSectionHeader(gameCustTab, "ESP")
 makeToggle(gameCustTab, "ESP Enabled",
     function() return Config.ESP.Enabled end,
     function(v) Config.ESP.Enabled = v end)
-makeToggle(gameCustTab, "ESP WallCheck (red if behind wall)",
-    function() return Config.ESP.WallCheck end,
-    function(v) Config.ESP.WallCheck = v end)
 makeSlider(gameCustTab, "Highlight distance", 50, 2000,
     function() return Config.ESP.MaxDistForHighlight end,
     function(v) Config.ESP.MaxDistForHighlight = v end, true)
