@@ -9,7 +9,6 @@ if _G.dokoo_hub_loaded then
 end
 _G.dokoo_hub_loaded = true
 
--- Cleanup old GUIs from previous launch
 pcall(function()
     local pg = (type(gethui) == "function" and select(2, pcall(gethui))) or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     for _, name in ipairs({"DokooHubMenu", "DokooHubCursor", "DokooHubChangelog", "DokooHubSplash", "DokooHubWrongGame", "DokooHubNotif", "DokooHubHelpOverlay"}) do
@@ -38,7 +37,43 @@ else
     guiParent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- ===================== SPLASH =====================
+local function playClick() end
+local function playKill() end
+
+local function hookButton(btn)
+    if not btn or not btn:IsA("TextButton") then return end
+    btn.MouseButton1Click:Connect(playClick)
+end
+
+local SpectateRef = { Target = nil }
+
+local function watchVictim(victim)
+    local function onChar(char)
+        local hum = char:WaitForChild("Humanoid", 10)
+        if not hum then return end
+        hum.Died:Connect(function()
+            local killer = hum:FindFirstChild("creator")
+            if killer and killer.Value == LocalPlayer then
+                playKill()
+                return
+            end
+            if SpectateRef.Target and killer and killer.Value == SpectateRef.Target then
+                playKill()
+            end
+        end)
+    end
+
+    victim.CharacterAdded:Connect(onChar)
+    if victim.Character then onChar(victim.Character) end
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then watchVictim(p) end
+end
+Players.PlayerAdded:Connect(function(p)
+    if p ~= LocalPlayer then watchVictim(p) end
+end)
+
 local function showSplash()
     local splashGui = Instance.new("ScreenGui")
     splashGui.Name = "DokooHubSplash"
@@ -204,7 +239,6 @@ showSplash()
 
 local VAGRANT_PLACE_ID = 100283815455755
 
--- ===================== WRONG GAME ERROR =====================
 local function showWrongGameError()
     local errGui = Instance.new("ScreenGui")
     errGui.Name = "DokooHubWrongGame"
@@ -300,7 +334,6 @@ if game.PlaceId ~= VAGRANT_PLACE_ID then
     return
 end
 
--- ===================== NOTIFICATIONS =====================
 local _activeNotifs = {}
 
 local function _repositionNotifs()
@@ -412,7 +445,6 @@ local function showNotification(title, body, duration, playSound)
     end)
 end
 
--- ===================== HELP GUIS / FPS / PING / OVERLAY =====================
 local HelpGuis = {
     OverlayEnabled = false,
     OverlayGui = nil,
@@ -448,7 +480,6 @@ local function getPing()
     return 0
 end
 
--- ===================== LIGHTING & FOG =====================
 local Lighting = game:GetService("Lighting")
 local _origLighting = {
     FogColor = Lighting.FogColor,
@@ -476,24 +507,23 @@ do
     end
 end
 
--- ===================== CONFIG (with DokooHubConfig merge) =====================
 local UserCfg = _G.DokooHubConfig or {}
 
 local Config = {
     ESP = {
         Enabled = (UserCfg.ESP and UserCfg.ESP.Enabled) or false,
         MaxDistForHighlight = (UserCfg.ESP and UserCfg.ESP.MaxDistForHighlight) or 500,
-        HighlightColor = (UserCfg.ESP and UserCfg.ESP.HighlightColor) or Color3.fromRGB(255, 215, 0),
-        OutlineColor = (UserCfg.ESP and UserCfg.ESP.OutlineColor) or Color3.fromRGB(255, 240, 180),
+        HighlightColor = (UserCfg.ESP and UserCfg.ESP.HighlightColor) or Color3.fromRGB(0, 255, 0),
+        OutlineColor = (UserCfg.ESP and UserCfg.ESP.OutlineColor) or Color3.fromRGB(0, 255, 0),
         TextColor = (UserCfg.ESP and UserCfg.ESP.TextColor) or Color3.fromRGB(255, 230, 150),
         TextSize = (UserCfg.ESP and UserCfg.ESP.TextSize) or 14,
         ShowName = (UserCfg.ESP and UserCfg.ESP.ShowName) ~= nil and UserCfg.ESP.ShowName or true,
-        ShowHP = (UserCfg.ESP and UserCfg.ESP.ShowHP) ~= nil and UserCfg.ESP.ShowHP or true,
         ShowDistance = (UserCfg.ESP and UserCfg.ESP.ShowDistance) ~= nil and UserCfg.ESP.ShowDistance or true,
+        ShowHealth = (UserCfg.ESP and UserCfg.ESP.ShowHealth) ~= nil and UserCfg.ESP.ShowHealth or true,
         WhitelistHighlight = {
             Enabled = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.Enabled) ~= nil and UserCfg.ESP.WhitelistHighlight.Enabled or true,
-            FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(0, 255, 0),
-            OutlineColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.OutlineColor) or Color3.fromRGB(255, 255, 255),
+            FillColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.FillColor) or Color3.fromRGB(255, 215, 0),
+            OutlineColor = (UserCfg.ESP and UserCfg.ESP.WhitelistHighlight and UserCfg.ESP.WhitelistHighlight.OutlineColor) or Color3.fromRGB(255, 240, 180),
         },
     },
     Aim = {
@@ -619,7 +649,6 @@ local function colorToStr(c)
         math.floor(c.B * 255 + 0.5))
 end
 
--- Overlay creation
 local function createOverlay()
     if HelpGuis.OverlayGui then pcall(function() HelpGuis.OverlayGui:Destroy() end) end
 
@@ -984,6 +1013,7 @@ clCloseBtn.ZIndex = 10
 clCloseBtn.Parent = clTitleBar
 addFont(clCloseBtn)
 local clc = Instance.new("UICorner"); clc.CornerRadius = UDim.new(0, 4); clc.Parent = clCloseBtn
+hookButton(clCloseBtn)
 
 local clBody = Instance.new("TextLabel")
 clBody.Size = UDim2.new(1, -24, 1, -50); clBody.Position = UDim2.new(0, 12, 0, 42)
@@ -1005,6 +1035,7 @@ clCloseBtn.MouseEnter:Connect(function() clCloseBtn.BackgroundColor3 = Color3.fr
 clCloseBtn.MouseLeave:Connect(function() clCloseBtn.BackgroundColor3 = Color3.fromRGB(140, 45, 45) end)
 clCloseBtn.MouseButton1Click:Connect(closeChangelog)
 clBackdrop.MouseButton1Click:Connect(closeChangelog)
+hookButton(clBackdrop)
 
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -1023,22 +1054,6 @@ local function colorToRichTag(c)
         math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
 end
 
-local function buildESPLabelText(player, humanoid, distance)
-    local lines = {}
-    if Config.ESP.ShowName then
-        table.insert(lines, string.format('<font color="%s">%s</font>', colorToRichTag(Config.ESP.NameColor or Config.ESP.TextColor), player.Name))
-    end
-    if Config.ESP.ShowHP then
-        table.insert(lines, string.format('<font color="%s">HP: %d/%d</font>',
-            colorToRichTag(Config.ESP.HPColor or Config.ESP.TextColor), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth)))
-    end
-    if Config.ESP.ShowDistance then
-        table.insert(lines, string.format('<font color="%s">Distance: %d studs</font>',
-            colorToRichTag(Config.ESP.DistanceColor or Config.ESP.TextColor), math.floor(distance)))
-    end
-    return table.concat(lines, "\n")
-end
-
 local function updateESP(player)
     if player == LocalPlayer then return end
     if not Config.ESP.Enabled then cleanupESPForPlayer(player); return end
@@ -1046,16 +1061,15 @@ local function updateESP(player)
     if not character or not character.Parent then cleanupESPForPlayer(player); return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
+    local head = character:FindFirstChild("Head")
+    if not humanoid or not rootPart or not head then return end
 
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local distance = myRoot and (rootPart.Position - myRoot.Position).Magnitude or 0
+    local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
 
-    local isWhitelisted = Config.Aim.Whitelist[player.Name] == true
-    local useWLColors = isWhitelisted and Config.ESP.WhitelistHighlight.Enabled
+    local isTeammate = Config.Aim.Whitelist[player.Name] == true
     local fillCol, outlineCol
-    if useWLColors then
+
+    if isTeammate and Config.ESP.WhitelistHighlight.Enabled then
         fillCol = Config.ESP.WhitelistHighlight.FillColor
         outlineCol = Config.ESP.WhitelistHighlight.OutlineColor
     else
@@ -1080,43 +1094,59 @@ local function updateESP(player)
         if espHighlights[player] then espHighlights[player]:Destroy(); espHighlights[player] = nil end
     end
 
-    local anyText = Config.ESP.ShowName or Config.ESP.ShowHP or Config.ESP.ShowDistance
-    if not anyText then
-        if espBillboards[player] then espBillboards[player]:Destroy(); espBillboards[player] = nil end
-        return
+    local infoBillboard = espBillboards[player]
+    if not infoBillboard or not infoBillboard.Parent then
+        infoBillboard = Instance.new("BillboardGui")
+        infoBillboard.Name = "DokooHubESP_Info"
+        infoBillboard.Adornee = head
+        infoBillboard.Size = UDim2.new(0, 200, 0, 40)
+        infoBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        infoBillboard.AlwaysOnTop = true
+        infoBillboard.MaxDistance = math.huge
+        infoBillboard.Parent = character
+
+        local infoLbl = Instance.new("TextLabel")
+        infoLbl.Name = "InfoLabel"
+        infoLbl.Size = UDim2.new(1, 0, 1, 0)
+        infoLbl.BackgroundTransparency = 1
+        infoLbl.TextColor3 = Config.ESP.TextColor
+        infoLbl.TextStrokeTransparency = 0
+        infoLbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        infoLbl.TextSize = Config.ESP.TextSize
+        infoLbl.Font = FONT_OPTIONS[Config.Font] or Enum.Font.Gotham
+        infoLbl.TextXAlignment = Enum.TextXAlignment.Center
+        infoLbl.TextYAlignment = Enum.TextYAlignment.Bottom
+        infoLbl.RichText = true
+        infoLbl.Parent = infoBillboard
+
+        espBillboards[player] = infoBillboard
     end
 
-    if not espBillboards[player] or not espBillboards[player].Parent then
-        local b = Instance.new("BillboardGui")
-        b.Name = "DokooHubESP_Billboard"
-        b.Adornee = character:FindFirstChild("Head") or rootPart
-        b.Size = UDim2.new(0, 200, 0, 60); b.StudsOffset = Vector3.new(0, 3, 0)
-        b.AlwaysOnTop = true; b.MaxDistance = math.huge
-        local l = Instance.new("TextLabel")
-        l.Name = "ESP_Label"; l.Size = UDim2.new(1, 0, 1, 0)
-        l.BackgroundTransparency = 1
-        l.TextColor3 = Config.ESP.TextColor
-        l.TextStrokeTransparency = 0
-        l.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        l.TextSize = Config.ESP.TextSize
-        l.Font = Enum.Font.GothamBold
-        l.TextXAlignment = Enum.TextXAlignment.Center
-        l.TextYAlignment = Enum.TextYAlignment.Center
-        l.RichText = true
-        l.Parent = b
-        b.Parent = character
-        espBillboards[player] = b
-    end
-
-    local b = espBillboards[player]
-    if b then
-        local l = b:FindFirstChild("ESP_Label")
-        if l then
-            l.TextSize = Config.ESP.TextSize
-            l.RichText = true
-            l.Text = buildESPLabelText(player, humanoid, distance)
+    if infoBillboard then
+        infoBillboard.Adornee = head
+        infoBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        local lbl = infoBillboard:FindFirstChild("InfoLabel")
+        if lbl then
+            local lines = {}
+            if Config.ESP.ShowName then
+                lines[#lines + 1] = string.format('<font color="%s">%s</font>',
+                    colorToRichTag(Config.ESP.TextColor), player.Name)
+            end
+            if Config.ESP.ShowHealth ~= false and humanoid then
+                local hp = math.floor(humanoid.Health + 0.5)
+                local maxHp = math.floor(humanoid.MaxHealth + 0.5)
+                lines[#lines + 1] = string.format('<font color="%s">%d / %d HP</font>',
+                    colorToRichTag(Config.ESP.TextColor), hp, maxHp)
+            end
+            if Config.ESP.ShowDistance then
+                lines[#lines + 1] = string.format('<font color="%s">%d studs</font>',
+                    colorToRichTag(Config.ESP.TextColor), math.floor(distance))
+            end
+            lbl.TextSize = Config.ESP.TextSize
+            lbl.Font = FONT_OPTIONS[Config.Font] or Enum.Font.Gotham
+            lbl.RichText = true
+            lbl.Text = table.concat(lines, "\n")
         end
-        b.Adornee = character:FindFirstChild("Head") or rootPart
     end
 end
 
@@ -1321,7 +1351,6 @@ LocalPlayer.CharacterAdded:Connect(function()
     if Config.ForceSpeed.Enabled then setupForceSpeed() end
 end)
 
--- ===================== SPECTATE =====================
 local Spectate = { Enabled = false, Target = nil, PrevSubject = nil, PrevType = nil }
 
 local function getSpectateList()
@@ -1347,12 +1376,14 @@ local function setSpectateTarget(player)
         Spectate.PrevType = Camera.CameraType
     end
     Spectate.Enabled = true; Spectate.Target = player
+    SpectateRef.Target = player
     Camera.CameraSubject = hum; Camera.CameraType = Enum.CameraType.Custom
 end
 
 local function stopSpectate()
     if not Spectate.Enabled then return end
     Spectate.Enabled = false; Spectate.Target = nil
+    SpectateRef.Target = nil
     if Spectate.PrevSubject and Spectate.PrevSubject.Parent then
         Camera.CameraSubject = Spectate.PrevSubject
     else
@@ -1533,6 +1564,7 @@ local function makeToggle(parent, name, getter, setter, callback)
     btn.Text = ""; btn.AutoButtonColor = false; btn.Parent = parent
     addBtn(btn)
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
+    hookButton(btn)
 
     local indicator = Instance.new("Frame")
     indicator.Size = UDim2.new(0, 3, 1, -8); indicator.Position = UDim2.new(0, 4, 0, 4)
@@ -1567,7 +1599,7 @@ local function makeToggle(parent, name, getter, setter, callback)
     return btn
 end
 
-local function makeSlider(parent, name, min, max, getter, setter, isInt, callback)
+local function makeSlider(parent, name, min, max, getter, setter, isInt, callback, noClick)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 34); row.BorderSizePixel = 0; row.Parent = parent
     addBtn(row)
@@ -1592,6 +1624,7 @@ local function makeSlider(parent, name, min, max, getter, setter, isInt, callbac
     bar.BorderSizePixel = 0; bar.Text = ""; bar.AutoButtonColor = false; bar.Parent = row
     addBtn(bar)
     local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(1, 0); bc.Parent = bar
+    if not noClick then hookButton(bar) end
 
     local fill = Instance.new("Frame")
     fill.BorderSizePixel = 0; fill.Parent = bar
@@ -1671,6 +1704,7 @@ local function makeSmallBtn(parent, name, cb)
     addText(btn); addFont(btn)
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
     btn.MouseButton1Click:Connect(cb)
+    hookButton(btn)
     return btn
 end
 
@@ -1683,6 +1717,7 @@ local function makeTrioBtn(parent, name, cb)
     addText(btn); addFont(btn)
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
     btn.MouseButton1Click:Connect(cb)
+    hookButton(btn)
     return btn
 end
 
@@ -1695,10 +1730,11 @@ local function makeWideBtn(parent, name, cb)
     addText(btn); addFont(btn)
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
     btn.MouseButton1Click:Connect(cb)
+    hookButton(btn)
     return btn
 end
 
-local tabNames = { "Customization", "Game", "Game Customization", "Movement", "HelpGuis" }
+local tabNames = { "Customization", "Game", "Game Customization", "Movement", "HelpGuis", "Music" }
 local tabButtons, tabFrames = {}, {}
 
 local function switchTab(name)
@@ -1725,6 +1761,7 @@ for i, name in ipairs(tabNames) do
     addFont(tb)
     local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = tb
     tabButtons[name] = tb
+    hookButton(tb)
 
     local sf = Instance.new("ScrollingFrame")
     sf.Size = UDim2.new(1, 0, 1, 0); sf.BackgroundTransparency = 1
@@ -1746,6 +1783,7 @@ local gameTab = tabFrames["Game"]
 local gameCustTab = tabFrames["Game Customization"]
 local movementTab = tabFrames["Movement"]
 local helpTab = tabFrames["HelpGuis"]
+local musicTab = tabFrames["Music"]
 
 makeSectionHeader(customTab, "FONT")
 
@@ -1783,6 +1821,7 @@ for _, name in ipairs({"Ubuntu", "Calibri", "ComicSans", "Silkscreen"}) do
     b.BackgroundColor3 = Theme.Button
     b.TextColor3 = Theme.Text
     fontButtons[name] = b
+    hookButton(b)
     b.MouseButton1Click:Connect(function()
         Config.Font = name; applyFont(); syncFontButtons()
     end)
@@ -1831,6 +1870,7 @@ changelogBtn.AutoButtonColor = true; changelogBtn.Parent = customTab
 addBtn(changelogBtn); addText(changelogBtn); addFont(changelogBtn)
 local clbtnc = Instance.new("UICorner"); clbtnc.CornerRadius = UDim.new(0, 6); clbtnc.Parent = changelogBtn
 changelogBtn.MouseButton1Click:Connect(function() openChangelog() end)
+hookButton(changelogBtn)
 
 makeSectionHeader(gameTab, "AIMBOT (PLAYERS)")
 makeToggle(gameTab, "Aimbot Enabled",
@@ -1883,6 +1923,7 @@ for _, opt in ipairs({"Head", "Torso"}) do
     b.BackgroundColor3 = Theme.Button
     b.TextColor3 = Theme.Text
     aimPartBtns[opt] = b
+    hookButton(b)
     b.MouseButton1Click:Connect(function()
         Config.Aim.AimPart = opt; syncAimParts()
     end)
@@ -1970,6 +2011,7 @@ function refreshSpectateList()
         btn.Text = ""; btn.AutoButtonColor = true; btn.Parent = specListFrame
         btn.BackgroundColor3 = isTarget and Theme.Accent or Theme.Button
         local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 4); c.Parent = btn
+        hookButton(btn)
 
         local nl = Instance.new("TextLabel")
         nl.Size = UDim2.new(1, -110, 1, 0); nl.Position = UDim2.new(0, 8, 0, 0)
@@ -1987,6 +2029,7 @@ function refreshSpectateList()
         wlBtn.TextSize = 9; wlBtn.Parent = btn
         addFont(wlBtn)
         local wlc2 = Instance.new("UICorner"); wlc2.CornerRadius = UDim.new(0, 4); wlc2.Parent = wlBtn
+        hookButton(wlBtn)
 
         wlBtn.MouseButton1Click:Connect(function()
             if Config.Aim.Whitelist[p.Name] then Config.Aim.Whitelist[p.Name] = nil
@@ -2062,7 +2105,7 @@ makeSlider(gameCustTab, "Text size", 8, 32,
 
 makeSectionHeader(gameCustTab, "ESP ELEMENTS")
 makeToggle(gameCustTab, "Show Name", function() return Config.ESP.ShowName end, function(v) Config.ESP.ShowName = v end)
-makeToggle(gameCustTab, "Show HP", function() return Config.ESP.ShowHP end, function(v) Config.ESP.ShowHP = v end)
+makeToggle(gameCustTab, "Show Health", function() return Config.ESP.ShowHealth end, function(v) Config.ESP.ShowHealth = v end)
 makeToggle(gameCustTab, "Show Distance", function() return Config.ESP.ShowDistance end, function(v) Config.ESP.ShowDistance = v end)
 
 makeSectionHeader(gameCustTab, "WHITELIST HIGHLIGHT")
@@ -2144,6 +2187,7 @@ refreshWhitelistUI = function()
         rb.TextSize = 11; rb.Parent = row
         addFont(rb)
         local rbc = Instance.new("UICorner"); rbc.CornerRadius = UDim.new(0, 4); rbc.Parent = rb
+        hookButton(rb)
 
         rb.MouseButton1Click:Connect(function()
             Config.Aim.Whitelist[name] = nil
@@ -2178,7 +2222,6 @@ end)
 
 refreshWhitelistUI()
 
--- ===================== LIGHTING UI =====================
 makeSectionHeader(gameCustTab, "LIGHTING & FOG")
 
 makeToggle(gameCustTab, "Custom lighting enabled",
@@ -2216,7 +2259,6 @@ makeWideBtn(gameCustTab, "Reset lighting", function()
     syncAll()
 end)
 
--- ===================== HELP GUIS UI =====================
 makeSectionHeader(helpTab, "SYSTEM STATS")
 
 local statsLbl = Instance.new("TextLabel")
@@ -2270,6 +2312,7 @@ bindBtn.AutoButtonColor = false
 bindBtn.Parent = bindRow
 addFont(bindBtn)
 local bindBtnC = Instance.new("UICorner"); bindBtnC.CornerRadius = UDim.new(0, 4); bindBtnC.Parent = bindBtn
+hookButton(bindBtn)
 
 local isBinding = false
 local bindConn
@@ -2300,7 +2343,6 @@ infoLbl.TextYAlignment = Enum.TextYAlignment.Top
 infoLbl.Parent = helpTab
 addFont(infoLbl)
 
--- ===================== PLAYERS ONLINE (HelpGuis tab) =====================
 makeSectionHeader(helpTab, "PLAYERS ONLINE")
 
 local playersFrame = Instance.new("Frame")
@@ -2407,7 +2449,203 @@ task.spawn(function()
     end
 end)
 
--- ===================== OVERLAY BIND HANDLER =====================
+-- ===================== MUSIC TAB =====================
+local MUSIC_LIST = {
+    { name = "Clair de Lune",  id = "1838457617" },
+    { name = "Stadium Rave",   id = "1846368080" },
+    { name = "Raining Tacos",  id = "142376088" },
+    { name = "Egg Hunt",       id = "4711747696" },
+    { name = "Relaxed Scene",  id = "1848354536" },
+    { name = "Crab Rave",      id = "5410086218" },
+    { name = "Chill Jazz",     id = "1845341094" },
+    { name = "Bossa Me (a)",   id = "1837768517" },
+}
+
+local currentMusicSound = nil
+local currentMusicId = nil
+local musicPlaying = false
+local musicVolumes = {}
+local musicLoopEnabled = true
+local musicShuffleEnabled = false
+
+makeSectionHeader(musicTab, "MUSIC PLAYER")
+
+local nowPlayingLbl = Instance.new("TextLabel")
+nowPlayingLbl.Size = UDim2.new(1, 0, 0, 20); nowPlayingLbl.BackgroundTransparency = 1
+nowPlayingLbl.Text = "Now playing: nothing"
+nowPlayingLbl.TextColor3 = Theme.Text
+nowPlayingLbl.TextSize = 11
+nowPlayingLbl.TextXAlignment = Enum.TextXAlignment.Left
+nowPlayingLbl.Parent = musicTab
+addFont(nowPlayingLbl)
+
+local function getSongNameById(id)
+    for _, s in ipairs(MUSIC_LIST) do
+        if tostring(s.id) == tostring(id) then return s.name or tostring(id) end
+    end
+    return tostring(id)
+end
+
+local function stopMusic()
+    if currentMusicSound then
+        pcall(function() currentMusicSound:Stop() end)
+        pcall(function() currentMusicSound:Destroy() end)
+        currentMusicSound = nil
+    end
+    musicPlaying = false
+    currentMusicId = nil
+end
+
+local function playMusic(songId)
+    stopMusic()
+    currentMusicSound = Instance.new("Sound")
+    currentMusicSound.SoundId = "rbxassetid://" .. tostring(songId)
+    local vol = musicVolumes[tostring(songId)]
+    currentMusicSound.Volume = vol or 0.5
+    currentMusicSound.Looped = musicLoopEnabled and not musicShuffleEnabled
+    currentMusicSound.Parent = SoundService
+    pcall(function() currentMusicSound:Play() end)
+    musicPlaying = true
+    currentMusicId = tostring(songId)
+
+    currentMusicSound.Ended:Connect(function()
+        if not musicShuffleEnabled then return end
+        if not currentMusicSound or currentMusicSound.SoundId ~= "rbxassetid://" .. tostring(songId) then return end
+        local pool = {}
+        for _, s in ipairs(MUSIC_LIST) do
+            if tostring(s.id) ~= tostring(songId) then table.insert(pool, s.id) end
+        end
+        if #pool == 0 then return end
+        local nextId = pool[math.random(1, #pool)]
+        playMusic(nextId)
+        if nowPlayingLbl then
+            nowPlayingLbl.Text = "Now playing: " .. getSongNameById(nextId)
+        end
+    end)
+end
+
+local musicBtnRow = Instance.new("Frame")
+musicBtnRow.Size = UDim2.new(1, 0, 0, 26); musicBtnRow.BackgroundTransparency = 1
+musicBtnRow.Parent = musicTab
+local mbLayout = Instance.new("UIListLayout")
+mbLayout.FillDirection = Enum.FillDirection.Horizontal
+mbLayout.Padding = UDim.new(0, 6); mbLayout.SortOrder = Enum.SortOrder.LayoutOrder
+mbLayout.Parent = musicBtnRow
+
+makeSmallBtn(musicBtnRow, "Stop Music", function()
+    stopMusic()
+    nowPlayingLbl.Text = "Now playing: nothing"
+end)
+
+makeSmallBtn(musicBtnRow, "Resume", function()
+    if currentMusicId and not musicPlaying then
+        playMusic(currentMusicId)
+        nowPlayingLbl.Text = "Now playing: " .. getSongNameById(currentMusicId)
+    end
+end)
+
+makeToggle(musicTab, "Loop Music",
+    function() return musicLoopEnabled end,
+    function(v) musicLoopEnabled = v end,
+    function(v)
+        if currentMusicSound then currentMusicSound.Looped = v and not musicShuffleEnabled end
+    end)
+
+makeToggle(musicTab, "Random Shuffle",
+    function() return musicShuffleEnabled end,
+    function(v) musicShuffleEnabled = v end,
+    function(v)
+        if currentMusicSound then currentMusicSound.Looped = musicLoopEnabled and not v end
+    end)
+
+makeSectionHeader(musicTab, "ID LIST")
+
+local musicScroll = Instance.new("ScrollingFrame")
+musicScroll.Size = UDim2.new(1, 0, 0, 300)
+musicScroll.BackgroundTransparency = 1
+musicScroll.BorderSizePixel = 0
+musicScroll.ScrollBarThickness = 4
+musicScroll.ScrollBarImageColor3 = Theme.Accent
+musicScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+musicScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+musicScroll.Parent = musicTab
+local msLayout = Instance.new("UIListLayout")
+msLayout.Padding = UDim.new(0, 3); msLayout.SortOrder = Enum.SortOrder.LayoutOrder
+msLayout.Parent = musicScroll
+
+for _, song in ipairs(MUSIC_LIST) do
+    if musicVolumes[song.id] == nil then musicVolumes[song.id] = 0.5 end
+
+    local playBtn = Instance.new("TextButton")
+    playBtn.Size = UDim2.new(1, 0, 0, 26)
+    playBtn.BorderSizePixel = 0
+    playBtn.Text = song.name .. "  [" .. song.id .. "]"
+    playBtn.TextSize = 11
+    playBtn.TextXAlignment = Enum.TextXAlignment.Left
+    playBtn.AutoButtonColor = true
+    playBtn.Parent = musicScroll
+    addBtn(playBtn)
+    addText(playBtn)
+    addFont(playBtn)
+    local pbc = Instance.new("UICorner"); pbc.CornerRadius = UDim.new(0, 4); pbc.Parent = playBtn
+    local ppad = Instance.new("UIPadding")
+    ppad.PaddingLeft = UDim.new(0, 6); ppad.Parent = playBtn
+    hookButton(playBtn)
+    playBtn.MouseButton1Click:Connect(function()
+        playMusic(song.id)
+        nowPlayingLbl.Text = "Now playing: " .. song.name
+    end)
+end
+
+makeSectionHeader(musicTab, "CUSTOM ID")
+
+local customRow = Instance.new("Frame")
+customRow.Size = UDim2.new(1, 0, 0, 36); customRow.BorderSizePixel = 0; customRow.Parent = musicTab
+addBtn(customRow)
+local crc = Instance.new("UICorner"); crc.CornerRadius = UDim.new(0, 6); crc.Parent = customRow
+
+local customLbl = Instance.new("TextLabel")
+customLbl.Size = UDim2.new(1, -24, 0, 14); customLbl.Position = UDim2.new(0, 12, 0, 2)
+customLbl.BackgroundTransparency = 1; customLbl.Text = "Paste audio ID"
+customLbl.TextSize = 11
+customLbl.TextXAlignment = Enum.TextXAlignment.Left
+customLbl.Parent = customRow
+addText(customLbl); addFont(customLbl)
+
+local customIdBox = Instance.new("TextBox")
+customIdBox.Size = UDim2.new(1, -24, 0, 16); customIdBox.Position = UDim2.new(0, 12, 0, 18)
+customIdBox.BackgroundColor3 = Theme.Background; customIdBox.BorderSizePixel = 0
+customIdBox.PlaceholderText = "e.g. 1838457617"
+customIdBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+customIdBox.TextColor3 = Theme.Text; customIdBox.TextSize = 11
+customIdBox.TextXAlignment = Enum.TextXAlignment.Left; customIdBox.ClearTextOnFocus = false
+customIdBox.Parent = customRow
+addFont(customIdBox)
+local cibc = Instance.new("UICorner"); cibc.CornerRadius = UDim.new(0, 4); cibc.Parent = customIdBox
+local cipad = Instance.new("UIPadding")
+cipad.PaddingLeft = UDim.new(0, 6); cipad.PaddingRight = UDim.new(0, 6); cipad.Parent = customIdBox
+
+makeWideBtn(musicTab, "Play Custom ID", function()
+    local raw = customIdBox.Text
+    if not raw or raw == "" then return end
+    local clean = raw:gsub("%s", "")
+    local id = clean:match("(%d+)")
+    if id then
+        if musicVolumes[id] == nil then musicVolumes[id] = 0.5 end
+        playMusic(id)
+        nowPlayingLbl.Text = "Now playing: custom [" .. id .. "]"
+    end
+end)
+
+makeSectionHeader(musicTab, "VOLUME")
+
+makeSlider(musicTab, "Music Volume", 0, 1,
+    function() return currentMusicSound and currentMusicSound.Volume or 0.5 end,
+    function(v)
+        if currentMusicSound then currentMusicSound.Volume = v end
+        if currentMusicId then musicVolumes[currentMusicId] = v end
+    end, false, nil, true)
+
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -2418,7 +2656,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- ===================== MENU FINALIZE =====================
 local menuOpen = true
 local function setMenuOpen(state) menuOpen = state; main.Visible = state end
 
