@@ -11,7 +11,7 @@ _G.dokoo_hub_loaded = true
 
 pcall(function()
     local pg = (type(gethui) == "function" and select(2, pcall(gethui))) or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-    for _, name in ipairs({"DokooHubMenu", "DokooHubCursor", "DokooHubChangelog", "DokooHubSplash", "DokooHubWrongGame", "DokooHubNotif", "DokooHubHelpOverlay"}) do
+    for _, name in ipairs({"DokooHubMenu", "DokooHubCursor", "DokooHubChangelog", "DokooHubSplash", "DokooHubWrongGame", "DokooHubNotif", "DokooHubHelpOverlay", "DokooMarkerRename"}) do
         local old = pg:FindFirstChild(name)
         if old then old:Destroy() end
     end
@@ -445,41 +445,6 @@ local function showNotification(title, body, duration, playSound)
     end)
 end
 
-local HelpGuis = {
-    OverlayEnabled = false,
-    OverlayGui = nil,
-    OverlayLabel = nil,
-    OverlayPlayersScroll = nil,
-    OverlayPlayersLayout = nil,
-}
-
-local fpsValue = 0
-task.spawn(function()
-    local frames = 0
-    local lastTime = tick()
-    RunService.RenderStepped:Connect(function()
-        frames = frames + 1
-        local now = tick()
-        if now - lastTime >= 1 then
-            fpsValue = frames
-            frames = 0
-            lastTime = now
-        end
-    end)
-end)
-
-local function getPing()
-    local ok, ping = pcall(function()
-        return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-    end)
-    if ok and ping and ping > 0 then return ping end
-    local ok2, ping2 = pcall(function()
-        return math.floor(game:GetService("Players").LocalPlayer:GetNetworkPing() * 1000)
-    end)
-    if ok2 and ping2 then return ping2 end
-    return 0
-end
-
 local Lighting = game:GetService("Lighting")
 local _origLighting = {
     FogColor = Lighting.FogColor,
@@ -549,7 +514,6 @@ local Config = {
         HideDefault = (UserCfg.Cursor and UserCfg.Cursor.HideDefault) ~= nil and UserCfg.Cursor.HideDefault or true,
     },
     Spectate = { AutoSwitchOnDeath = (UserCfg.Spectate and UserCfg.Spectate.AutoSwitchOnDeath) ~= nil and UserCfg.Spectate.AutoSwitchOnDeath or true },
-    HelpGuis = { OverlayBind = (UserCfg.HelpGuis and UserCfg.HelpGuis.OverlayBind) or Enum.KeyCode.F2 },
     Lighting = {
         FogColor = (UserCfg.Lighting and UserCfg.Lighting.FogColor) or Color3.fromRGB(192, 192, 192),
         LightColor = (UserCfg.Lighting and UserCfg.Lighting.LightColor) or Color3.fromRGB(255, 255, 255),
@@ -647,178 +611,6 @@ local function colorToStr(c)
         math.floor(c.R * 255 + 0.5),
         math.floor(c.G * 255 + 0.5),
         math.floor(c.B * 255 + 0.5))
-end
-
-local function createOverlay()
-    if HelpGuis.OverlayGui then pcall(function() HelpGuis.OverlayGui:Destroy() end) end
-
-    local og = Instance.new("ScreenGui")
-    og.Name = "DokooHubHelpOverlay"
-    og.ResetOnSpawn = false
-    og.IgnoreGuiInset = true
-    og.DisplayOrder = 9997
-    og.Parent = guiParent
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 260, 0, 300)
-    frame.Position = UDim2.new(1, -280, 0, 24)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 12, 20)
-    frame.BackgroundTransparency = 0.08
-    frame.BorderSizePixel = 0
-    frame.Active = true
-    frame.Draggable = true
-    frame.Parent = og
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = frame
-    local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(218, 165, 32); s.Thickness = 1.5; s.Parent = frame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 20); title.Position = UDim2.new(0, 0, 0, 6)
-    title.BackgroundTransparency = 1
-    title.Text = "DokooHub Stats — F2"
-    title.TextColor3 = Color3.fromRGB(255, 215, 0)
-    title.Font = Enum.Font.Ubuntu; title.TextSize = 12
-    title.Parent = frame
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -12, 0, 34); lbl.Position = UDim2.new(0, 6, 0, 28)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "FPS: --\nPing: -- ms"
-    lbl.TextColor3 = Color3.fromRGB(230, 230, 230)
-    lbl.Font = Enum.Font.Ubuntu; lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextYAlignment = Enum.TextYAlignment.Top
-    lbl.Parent = frame
-
-    local sep = Instance.new("Frame")
-    sep.Size = UDim2.new(1, -12, 0, 1); sep.Position = UDim2.new(0, 6, 0, 66)
-    sep.BackgroundColor3 = Color3.fromRGB(218, 165, 32)
-    sep.BorderSizePixel = 0
-    sep.Parent = frame
-
-    local playersTitle = Instance.new("TextLabel")
-    playersTitle.Size = UDim2.new(1, -12, 0, 16); playersTitle.Position = UDim2.new(0, 6, 0, 70)
-    playersTitle.BackgroundTransparency = 1
-    playersTitle.Text = "PLAYERS ONLINE"
-    playersTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
-    playersTitle.Font = Enum.Font.Ubuntu; playersTitle.TextSize = 11
-    playersTitle.TextXAlignment = Enum.TextXAlignment.Left
-    playersTitle.Parent = frame
-
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Size = UDim2.new(1, -12, 1, -100); scroll.Position = UDim2.new(0, 6, 0, 90)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 3
-    scroll.ScrollBarImageColor3 = Color3.fromRGB(218, 165, 32)
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scroll.Parent = frame
-
-    local scrollLayout = Instance.new("UIListLayout")
-    scrollLayout.Padding = UDim.new(0, 2)
-    scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scrollLayout.Parent = scroll
-
-    HelpGuis.OverlayGui = og
-    HelpGuis.OverlayLabel = lbl
-    HelpGuis.OverlayPlayersScroll = scroll
-    HelpGuis.OverlayPlayersLayout = scrollLayout
-
-    task.spawn(function()
-        while HelpGuis.OverlayGui and HelpGuis.OverlayGui.Parent do
-            task.wait(0.5)
-            if HelpGuis.OverlayLabel then
-                HelpGuis.OverlayLabel.Text = string.format("FPS: %d\nPing: %d ms", fpsValue, getPing())
-            end
-        end
-    end)
-
-    task.spawn(function()
-        while HelpGuis.OverlayGui and HelpGuis.OverlayGui.Parent do
-            task.wait(1)
-            local scrollFrame = HelpGuis.OverlayPlayersScroll
-            if not scrollFrame or not scrollFrame.Parent then break end
-
-            if not Config or not Config.Aim then continue end
-
-            for _, child in ipairs(scrollFrame:GetChildren()) do
-                if not child:IsA("UIListLayout") then
-                    child:Destroy()
-                end
-            end
-
-            local myChar = LocalPlayer.Character
-            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local myPos = myRoot and myRoot.Position
-
-            local list = {}
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer then table.insert(list, p) end
-            end
-
-            if #list == 0 then
-                local e = Instance.new("TextLabel")
-                e.Size = UDim2.new(1, 0, 0, 16); e.BackgroundTransparency = 1
-                e.Text = "No other players"; e.TextSize = 10
-                e.TextColor3 = Color3.fromRGB(170, 170, 170)
-                e.Font = Enum.Font.Ubuntu
-                e.TextXAlignment = Enum.TextXAlignment.Left
-                e.Parent = scrollFrame
-            else
-                for _, p in ipairs(list) do
-                    local char = p.Character
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    local alive = hum and hum.Health > 0
-                    local hp = hum and math.floor(hum.Health) or 0
-                    local dist = (root and myPos) and math.floor((root.Position - myPos).Magnitude) or 0
-                    local inWl = false
-                    pcall(function() inWl = Config.Aim.Whitelist[p.Name] == true end)
-
-                    local row = Instance.new("Frame")
-                    row.Size = UDim2.new(1, 0, 0, 18)
-                    row.BackgroundTransparency = 1
-                    row.Parent = scrollFrame
-
-                    local nl = Instance.new("TextLabel")
-                    nl.Size = UDim2.new(1, -80, 1, 0); nl.Position = UDim2.new(0, 0, 0, 0)
-                    nl.BackgroundTransparency = 1
-                    nl.Text = p.Name .. (inWl and " [WL]" or "")
-                    nl.TextSize = 10
-                    nl.TextColor3 = alive and Color3.fromRGB(230, 230, 230) or Color3.fromRGB(200, 100, 100)
-                    nl.Font = Enum.Font.Ubuntu
-                    nl.TextXAlignment = Enum.TextXAlignment.Left
-                    nl.TextTruncate = Enum.TextTruncate.AtEnd
-                    nl.Parent = row
-
-                    local info = Instance.new("TextLabel")
-                    info.Size = UDim2.new(0, 80, 1, 0); info.Position = UDim2.new(1, -80, 0, 0)
-                    info.BackgroundTransparency = 1
-                    info.Text = alive and (hp .. " | " .. dist .. "st") or "DEAD"
-                    info.TextSize = 9
-                    info.TextColor3 = alive and Color3.fromRGB(120, 230, 140) or Color3.fromRGB(220, 110, 110)
-                    info.Font = Enum.Font.Ubuntu
-                    info.TextXAlignment = Enum.TextXAlignment.Right
-                    info.Parent = row
-                end
-            end
-        end
-    end)
-end
-
-local function setOverlayEnabled(state)
-    HelpGuis.OverlayEnabled = state
-    if state then
-        createOverlay()
-    else
-        if HelpGuis.OverlayGui then
-            pcall(function() HelpGuis.OverlayGui:Destroy() end)
-            HelpGuis.OverlayGui = nil
-            HelpGuis.OverlayLabel = nil
-            HelpGuis.OverlayPlayersScroll = nil
-            HelpGuis.OverlayPlayersLayout = nil
-        end
-    end
 end
 
 task.spawn(function()
@@ -1345,11 +1137,78 @@ local function setForceSpeedEnabled(enabled)
     end
 end
 
-LocalPlayer.CharacterAdded:Connect(function()
+-- ===================== AUTO TP TO DEATH + МЕТКИ =====================
+local AutoTpToDeath = {
+    Enabled = false,
+    LastDeathPosition = nil,
+    DeathHappened = false,
+    PendingRespawn = false,
+}
+
+local Markers = {}
+
+local function tpCharacterTo(pos, offsetY)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    pcall(function()
+        root.CFrame = CFrame.new(pos + Vector3.new(0, offsetY or 3, 0))
+    end)
+    return true
+end
+
+local function trackDeathPosition()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum.Died:Connect(function()
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            AutoTpToDeath.LastDeathPosition = root.Position
+        end
+        AutoTpToDeath.DeathHappened = true
+        AutoTpToDeath.PendingRespawn = true
+    end)
+end
+
+trackDeathPosition()
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    local root = char:WaitForChild("HumanoidRootPart", 10)
+
+    if AutoTpToDeath.PendingRespawn and AutoTpToDeath.Enabled and AutoTpToDeath.LastDeathPosition then
+        if root then
+            pcall(function()
+                root.CFrame = CFrame.new(AutoTpToDeath.LastDeathPosition + Vector3.new(0, 3, 0))
+            end)
+        end
+    end
+    AutoTpToDeath.PendingRespawn = false
+
     task.wait(0.5)
+    trackDeathPosition()
+
     cleanupForceSpeed()
     if Config.ForceSpeed.Enabled then setupForceSpeed() end
 end)
+
+-- ===================== ТЕЛЕПОРТ (как bang) =====================
+local function teleportToPlayer(targetPlayer)
+    if not targetPlayer or targetPlayer == LocalPlayer then return end
+
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local targetChar = targetPlayer.Character
+    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+
+    pcall(function()
+        myRoot.CFrame = targetRoot.CFrame
+    end)
+end
 
 local Spectate = { Enabled = false, Target = nil, PrevSubject = nil, PrevType = nil }
 
@@ -1734,7 +1593,7 @@ local function makeWideBtn(parent, name, cb)
     return btn
 end
 
-local tabNames = { "Customization", "Game", "Game Customization", "Movement", "HelpGuis", "Music" }
+local tabNames = { "Customization", "Game", "Game Customization", "Movement", "Music" }
 local tabButtons, tabFrames = {}, {}
 
 local function switchTab(name)
@@ -1782,7 +1641,6 @@ local customTab = tabFrames["Customization"]
 local gameTab = tabFrames["Game"]
 local gameCustTab = tabFrames["Game Customization"]
 local movementTab = tabFrames["Movement"]
-local helpTab = tabFrames["HelpGuis"]
 local musicTab = tabFrames["Music"]
 
 makeSectionHeader(customTab, "FONT")
@@ -2068,6 +1926,7 @@ task.spawn(function()
     end
 end)
 
+-- ===================== MOVEMENT =====================
 makeSectionHeader(movementTab, "JUMP")
 makeToggle(movementTab, "Infinite Jump",
     function() return Config.InfiniteJump.Enabled end,
@@ -2080,17 +1939,302 @@ makeToggle(movementTab, "Force Speed Enabled",
 makeToggle(movementTab, "Sprint Force (Shift +8)",
     function() return Config.ForceSpeed.SprintForce end,
     function(v) Config.ForceSpeed.SprintForce = v end)
-    
-local speedSlider
-speedSlider = makeSlider(movementTab, "Force Speed", 16, 35,
+
+makeSlider(movementTab, "Force Speed", 16, 35,
     function() return Config.ForceSpeed.Speed end,
-    function(v) 
-        Config.ForceSpeed.Speed = v 
+    function(v)
+        Config.ForceSpeed.Speed = v
         local maxAllowed = Config.ForceSpeed.SprintForce and 27 or 35
         if v > maxAllowed then
             Config.ForceSpeed.Speed = maxAllowed
         end
     end, true)
+
+makeSectionHeader(movementTab, "AUTO TELEPORT TO DEATH")
+makeToggle(movementTab, "TP to death on respawn",
+    function() return AutoTpToDeath.Enabled end,
+    function(v) AutoTpToDeath.Enabled = v end)
+
+makeSectionHeader(movementTab, "MARKERS")
+
+makeWideBtn(movementTab, "Place Marker Here", function()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    table.insert(Markers, {
+        position = root.Position,
+        name = "Marker " .. (#Markers + 1),
+    })
+    if refreshMarkersList then refreshMarkersList() end
+end)
+
+local markerScroll = Instance.new("ScrollingFrame")
+markerScroll.Size = UDim2.new(1, 0, 0, 200)
+markerScroll.BackgroundTransparency = 1
+markerScroll.BorderSizePixel = 0
+markerScroll.ScrollBarThickness = 4
+markerScroll.ScrollBarImageColor3 = Theme.Accent
+markerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+markerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+markerScroll.Parent = movementTab
+local mlLayout = Instance.new("UIListLayout")
+mlLayout.Padding = UDim.new(0, 3); mlLayout.SortOrder = Enum.SortOrder.LayoutOrder
+mlLayout.Parent = markerScroll
+
+function refreshMarkersList()
+    for _, child in ipairs(markerScroll:GetChildren()) do
+        if not child:IsA("UIListLayout") then child:Destroy() end
+    end
+
+    if #Markers == 0 then
+        local e = Instance.new("TextLabel")
+        e.Size = UDim2.new(1, 0, 0, 20); e.BackgroundTransparency = 1
+        e.Text = "No markers. Place one above."
+        e.TextSize = 11; e.TextColor3 = Color3.fromRGB(170, 170, 170)
+        e.Font = Enum.Font.Gotham
+        e.Parent = markerScroll
+        return
+    end
+
+    for i, marker in ipairs(Markers) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 22); row.BorderSizePixel = 0
+        row.BackgroundColor3 = Theme.Button
+        row.Parent = markerScroll
+        local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 4); rc.Parent = row
+
+        local nl = Instance.new("TextLabel")
+        nl.Size = UDim2.new(1, -160, 1, 0); nl.Position = UDim2.new(0, 8, 0, 0)
+        nl.BackgroundTransparency = 1
+        nl.Text = marker.name .. "  (" ..
+            math.floor(marker.position.X) .. ", " ..
+            math.floor(marker.position.Y) .. ", " ..
+            math.floor(marker.position.Z) .. ")"
+        nl.TextSize = 10
+        nl.TextColor3 = Theme.Text
+        nl.Font = Enum.Font.Gotham
+        nl.TextXAlignment = Enum.TextXAlignment.Left
+        nl.TextTruncate = Enum.TextTruncate.AtEnd
+        nl.Parent = row
+
+        local tpBtn = Instance.new("TextButton")
+        tpBtn.Size = UDim2.new(0, 36, 0, 16); tpBtn.Position = UDim2.new(1, -154, 0, 3)
+        tpBtn.BackgroundColor3 = Theme.Accent; tpBtn.BorderSizePixel = 0
+        tpBtn.Text = "TP"; tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tpBtn.TextSize = 10; tpBtn.Font = Enum.Font.GothamBold
+        tpBtn.Parent = row
+        local tpc = Instance.new("UICorner"); tpc.CornerRadius = UDim.new(0, 4); tpc.Parent = tpBtn
+
+        tpBtn.MouseButton1Click:Connect(function()
+            tpCharacterTo(marker.position)
+        end)
+
+        local renBtn = Instance.new("TextButton")
+        renBtn.Size = UDim2.new(0, 36, 0, 16); renBtn.Position = UDim2.new(1, -116, 0, 3)
+        renBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); renBtn.BorderSizePixel = 0
+        renBtn.Text = "Ren"; renBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        renBtn.TextSize = 10; renBtn.Font = Enum.Font.GothamBold
+        renBtn.Parent = row
+        local rc2 = Instance.new("UICorner"); rc2.CornerRadius = UDim.new(0, 4); rc2.Parent = renBtn
+
+        renBtn.MouseButton1Click:Connect(function()
+            local inputGui = Instance.new("ScreenGui")
+            inputGui.Name = "DokooMarkerRename"
+            inputGui.ResetOnSpawn = false
+            inputGui.IgnoreGuiInset = true
+            inputGui.DisplayOrder = 2147483646
+            inputGui.Parent = guiParent
+
+            local backdrop = Instance.new("TextButton")
+            backdrop.Size = UDim2.new(1, 0, 1, 0)
+            backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            backdrop.BackgroundTransparency = 0.4
+            backdrop.BorderSizePixel = 0
+            backdrop.Text = ""
+            backdrop.AutoButtonColor = false
+            backdrop.Parent = inputGui
+
+            local card = Instance.new("Frame")
+            card.Size = UDim2.new(0, 300, 0, 120)
+            card.Position = UDim2.new(0.5, -150, 0.5, -60)
+            card.BackgroundColor3 = Theme.Panel
+            card.BorderSizePixel = 0
+            card.Parent = inputGui
+            local cc = Instance.new("UICorner"); cc.CornerRadius = UDim.new(0, 8); cc.Parent = card
+            local cs = Instance.new("UIStroke"); cs.Color = Theme.Outline; cs.Thickness = 1.5; cs.Parent = card
+
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -20, 0, 20); title.Position = UDim2.new(0, 10, 0, 8)
+            title.BackgroundTransparency = 1
+            title.Text = "Rename marker"
+            title.TextColor3 = Theme.Text; title.TextSize = 13
+            title.Font = Enum.Font.GothamBold
+            title.TextXAlignment = Enum.TextXAlignment.Left
+            title.Parent = card
+
+            local box = Instance.new("TextBox")
+            box.Size = UDim2.new(1, -20, 0, 30); box.Position = UDim2.new(0, 10, 0, 34)
+            box.BackgroundColor3 = Theme.Background; box.BorderSizePixel = 0
+            box.Text = marker.name
+            box.PlaceholderText = "Marker name"
+            box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+            box.TextColor3 = Theme.Text; box.TextSize = 12
+            box.Font = Enum.Font.Gotham
+            box.ClearTextOnFocus = false
+            box.Parent = card
+            local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0, 4); bc.Parent = box
+            local pad = Instance.new("UIPadding")
+            pad.PaddingLeft = UDim.new(0, 6); pad.PaddingRight = UDim.new(0, 6); pad.Parent = box
+
+            local okBtn = Instance.new("TextButton")
+            okBtn.Size = UDim2.new(0.5, -15, 0, 26); okBtn.Position = UDim2.new(0, 10, 1, -34)
+            okBtn.BackgroundColor3 = Theme.Accent; okBtn.BorderSizePixel = 0
+            okBtn.Text = "OK"; okBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            okBtn.TextSize = 12; okBtn.Font = Enum.Font.GothamBold
+            okBtn.Parent = card
+            local okc = Instance.new("UICorner"); okc.CornerRadius = UDim.new(0, 4); okc.Parent = okBtn
+
+            local cancelBtn = Instance.new("TextButton")
+            cancelBtn.Size = UDim2.new(0.5, -15, 0, 26); cancelBtn.Position = UDim2.new(0.5, 5, 1, -34)
+            cancelBtn.BackgroundColor3 = Theme.Button; cancelBtn.BorderSizePixel = 0
+            cancelBtn.Text = "Cancel"; cancelBtn.TextColor3 = Theme.Text
+            cancelBtn.TextSize = 12; cancelBtn.Font = Enum.Font.Gotham
+            cancelBtn.Parent = card
+            local cbc = Instance.new("UICorner"); cbc.CornerRadius = UDim.new(0, 4); cbc.Parent = cancelBtn
+
+            box:CaptureFocus()
+
+            okBtn.MouseButton1Click:Connect(function()
+                local newName = box.Text
+                if newName and newName ~= "" then
+                    marker.name = newName
+                end
+                inputGui:Destroy()
+                refreshMarkersList()
+            end)
+
+            cancelBtn.MouseButton1Click:Connect(function()
+                inputGui:Destroy()
+            end)
+
+            backdrop.MouseButton1Click:Connect(function()
+                inputGui:Destroy()
+            end)
+        end)
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0, 36, 0, 16); delBtn.Position = UDim2.new(1, -40, 0, 3)
+        delBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40); delBtn.BorderSizePixel = 0
+        delBtn.Text = "Del"; delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        delBtn.TextSize = 10; delBtn.Font = Enum.Font.GothamBold
+        delBtn.Parent = row
+        local dc = Instance.new("UICorner"); dc.CornerRadius = UDim.new(0, 4); dc.Parent = delBtn
+
+        delBtn.MouseButton1Click:Connect(function()
+            table.remove(Markers, i)
+            refreshMarkersList()
+        end)
+    end
+end
+
+refreshMarkersList()
+
+makeWideBtn(movementTab, "Clear All Markers", function()
+    Markers = {}
+    refreshMarkersList()
+end)
+
+makeSectionHeader(movementTab, "TELEPORT TO PLAYER")
+
+local tpListFrame = Instance.new("Frame")
+tpListFrame.Size = UDim2.new(1, 0, 0, 0)
+tpListFrame.AutomaticSize = Enum.AutomaticSize.Y
+tpListFrame.BorderSizePixel = 0
+tpListFrame.Parent = movementTab
+addPanel(tpListFrame)
+local tpfc = Instance.new("UICorner"); tpfc.CornerRadius = UDim.new(0, 6); tpfc.Parent = tpListFrame
+local tpLayout = Instance.new("UIListLayout")
+tpLayout.Padding = UDim.new(0, 2); tpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tpLayout.Parent = tpListFrame
+local tpPad = Instance.new("UIPadding")
+tpPad.PaddingTop = UDim.new(0, 4); tpPad.PaddingBottom = UDim.new(0, 4)
+tpPad.PaddingLeft = UDim.new(0, 4); tpPad.PaddingRight = UDim.new(0, 4)
+tpPad.Parent = tpListFrame
+
+local function refreshTPList()
+    for _, child in ipairs(tpListFrame:GetChildren()) do
+        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end
+    end
+
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(list, p) end
+    end
+
+    if #list == 0 then
+        local e = Instance.new("TextLabel")
+        e.Size = UDim2.new(1, 0, 0, 20); e.BackgroundTransparency = 1
+        e.Text = "No other players"; e.TextSize = 11
+        e.TextColor3 = Color3.fromRGB(170, 170, 170); e.Parent = tpListFrame
+        addFont(e); return
+    end
+
+    for _, p in ipairs(list) do
+        local char = p.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local alive = hum and hum.Health > 0
+
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 20); row.BorderSizePixel = 0; row.Parent = tpListFrame
+        addBtn(row)
+        local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 4); rc.Parent = row
+
+        local nl = Instance.new("TextLabel")
+        nl.Size = UDim2.new(1, -50, 1, 0); nl.Position = UDim2.new(0, 8, 0, 0)
+        nl.BackgroundTransparency = 1
+        nl.Text = p.Name
+        nl.TextSize = 11
+        nl.TextColor3 = alive and Theme.Text or Color3.fromRGB(200, 100, 100)
+        nl.TextXAlignment = Enum.TextXAlignment.Left
+        nl.TextTruncate = Enum.TextTruncate.AtEnd
+        nl.Parent = row
+        addFont(nl)
+
+        local tpBtn = Instance.new("TextButton")
+        tpBtn.Size = UDim2.new(0, 36, 0, 16); tpBtn.Position = UDim2.new(1, -40, 0, 2)
+        tpBtn.BackgroundColor3 = Theme.Accent
+        tpBtn.BorderSizePixel = 0
+        tpBtn.Text = "TP"
+        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tpBtn.TextSize = 10
+        tpBtn.Parent = row
+        addFont(tpBtn)
+        local tpc = Instance.new("UICorner"); tpc.CornerRadius = UDim.new(0, 4); tpc.Parent = tpBtn
+        hookButton(tpBtn)
+
+        tpBtn.MouseButton1Click:Connect(function()
+            if alive then teleportToPlayer(p) end
+        end)
+    end
+end
+
+refreshTPList()
+
+Players.PlayerAdded:Connect(function()
+    task.wait(1); if refreshTPList then refreshTPList() end
+end)
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.1); if refreshTPList then refreshTPList() end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if main.Visible and movementTab.Visible then
+            refreshTPList()
+        end
+    end
+end)
 
 makeSectionHeader(gameCustTab, "ESP")
 makeToggle(gameCustTab, "ESP Enabled",
@@ -2259,202 +2403,11 @@ makeWideBtn(gameCustTab, "Reset lighting", function()
     syncAll()
 end)
 
-makeSectionHeader(helpTab, "SYSTEM STATS")
-
-local statsLbl = Instance.new("TextLabel")
-statsLbl.Size = UDim2.new(1, 0, 0, 40); statsLbl.BackgroundTransparency = 1
-statsLbl.Text = "FPS: --\nPing: -- ms"
-statsLbl.TextColor3 = Theme.Text
-statsLbl.TextSize = 12
-statsLbl.TextXAlignment = Enum.TextXAlignment.Left
-statsLbl.TextYAlignment = Enum.TextYAlignment.Top
-statsLbl.Parent = helpTab
-addFont(statsLbl)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if statsLbl and statsLbl.Parent then
-            statsLbl.Text = string.format("FPS: %d\nPing: %d ms", fpsValue, getPing())
-        end
-    end
-end)
-
-makeSectionHeader(helpTab, "OVERLAY (FPS/PING/PLAYERS)")
-
-makeToggle(helpTab, "Overlay Enabled",
-    function() return HelpGuis.OverlayEnabled end,
-    function(v) setOverlayEnabled(v) end)
-
-local bindRow = Instance.new("Frame")
-bindRow.Size = UDim2.new(1, 0, 0, 46); bindRow.BorderSizePixel = 0
-bindRow.Parent = helpTab
-addBtn(bindRow)
-local bindc = Instance.new("UICorner"); bindc.CornerRadius = UDim.new(0, 6); bindc.Parent = bindRow
-
-local bindLbl = Instance.new("TextLabel")
-bindLbl.Size = UDim2.new(1, -24, 0, 18); bindLbl.Position = UDim2.new(0, 12, 0, 2)
-bindLbl.BackgroundTransparency = 1
-bindLbl.Text = "Toggle bind (click + press key)"
-bindLbl.TextSize = 11
-bindLbl.TextXAlignment = Enum.TextXAlignment.Left
-bindLbl.Parent = bindRow
-addText(bindLbl); addFont(bindLbl)
-
-local bindBtn = Instance.new("TextButton")
-bindBtn.Size = UDim2.new(1, -24, 0, 20); bindBtn.Position = UDim2.new(0, 12, 0, 22)
-bindBtn.BorderSizePixel = 0
-bindBtn.Text = Config.HelpGuis.OverlayBind and Config.HelpGuis.OverlayBind.Name or "F2"
-bindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-bindBtn.BackgroundColor3 = Theme.Accent
-bindBtn.TextSize = 11
-bindBtn.AutoButtonColor = false
-bindBtn.Parent = bindRow
-addFont(bindBtn)
-local bindBtnC = Instance.new("UICorner"); bindBtnC.CornerRadius = UDim.new(0, 4); bindBtnC.Parent = bindBtn
-hookButton(bindBtn)
-
-local isBinding = false
-local bindConn
-bindBtn.MouseButton1Click:Connect(function()
-    if isBinding then return end
-    isBinding = true
-    bindBtn.Text = "Press a key..."
-    if bindConn then bindConn:Disconnect() end
-    bindConn = UserInputService.InputBegan:Connect(function(input, gp)
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-        if gp then return end
-        Config.HelpGuis.OverlayBind = input.KeyCode
-        bindBtn.Text = input.KeyCode.Name
-        isBinding = false
-        if bindConn then bindConn:Disconnect(); bindConn = nil end
-    end)
-end)
-
-makeSectionHeader(helpTab, "INFO")
-local infoLbl = Instance.new("TextLabel")
-infoLbl.Size = UDim2.new(1, -10, 0, 60); infoLbl.BackgroundTransparency = 1
-infoLbl.Text = "DokooHub — shows real FPS and ping.\nOverlay can be dragged with the mouse.\nDefault bind: F2 (can be changed above)."
-infoLbl.TextColor3 = Color3.fromRGB(190, 190, 190)
-infoLbl.TextSize = 11
-infoLbl.TextWrapped = true
-infoLbl.TextXAlignment = Enum.TextXAlignment.Left
-infoLbl.TextYAlignment = Enum.TextYAlignment.Top
-infoLbl.Parent = helpTab
-addFont(infoLbl)
-
-makeSectionHeader(helpTab, "PLAYERS ONLINE")
-
-local playersFrame = Instance.new("Frame")
-playersFrame.Size = UDim2.new(1, 0, 0, 0)
-playersFrame.AutomaticSize = Enum.AutomaticSize.Y
-playersFrame.BorderSizePixel = 0
-playersFrame.Parent = helpTab
-addPanel(playersFrame)
-local pfc = Instance.new("UICorner"); pfc.CornerRadius = UDim.new(0, 6); pfc.Parent = playersFrame
-local pfLayout = Instance.new("UIListLayout")
-pfLayout.Padding = UDim.new(0, 2); pfLayout.SortOrder = Enum.SortOrder.LayoutOrder
-pfLayout.Parent = playersFrame
-local pfPad = Instance.new("UIPadding")
-pfPad.PaddingTop = UDim.new(0, 4); pfPad.PaddingBottom = UDim.new(0, 4)
-pfPad.PaddingLeft = UDim.new(0, 4); pfPad.PaddingRight = UDim.new(0, 4)
-pfPad.Parent = playersFrame
-
-local function refreshPlayersOnline()
-    for _, child in ipairs(playersFrame:GetChildren()) do
-        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end
-    end
-
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local myPos = myRoot and myRoot.Position
-
-    local list = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then table.insert(list, p) end
-    end
-
-    if #list == 0 then
-        local e = Instance.new("TextLabel")
-        e.Size = UDim2.new(1, 0, 0, 20); e.BackgroundTransparency = 1
-        e.Text = "No other players"; e.TextSize = 11
-        e.TextColor3 = Color3.fromRGB(170, 170, 170); e.Parent = playersFrame
-        addFont(e); return
-    end
-
-    for _, p in ipairs(list) do
-        local char = p.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local alive = hum and hum.Health > 0
-        local hp = hum and math.floor(hum.Health) or 0
-        local dist = (root and myPos) and math.floor((root.Position - myPos).Magnitude) or 0
-        local inWl = Config.Aim.Whitelist[p.Name] == true
-
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 20); row.BorderSizePixel = 0; row.Parent = playersFrame
-        addBtn(row)
-        local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 4); rc.Parent = row
-
-        local nl = Instance.new("TextLabel")
-        nl.Size = UDim2.new(1, -120, 1, 0); nl.Position = UDim2.new(0, 8, 0, 0)
-        nl.BackgroundTransparency = 1
-        nl.Text = p.Name .. (inWl and "  [WL]" or "")
-        nl.TextSize = 11
-        nl.TextColor3 = alive and Theme.Text or Color3.fromRGB(200, 100, 100)
-        nl.TextXAlignment = Enum.TextXAlignment.Left
-        nl.TextTruncate = Enum.TextTruncate.AtEnd
-        nl.Parent = row
-        addFont(nl)
-
-        local hpLbl = Instance.new("TextLabel")
-        hpLbl.Size = UDim2.new(0, 44, 1, 0); hpLbl.Position = UDim2.new(1, -116, 0, 0)
-        hpLbl.BackgroundTransparency = 1
-        hpLbl.Text = alive and ("HP " .. hp) or "DEAD"
-        hpLbl.TextColor3 = alive and Color3.fromRGB(120, 230, 140) or Color3.fromRGB(220, 110, 110)
-        hpLbl.TextSize = 10
-        hpLbl.TextXAlignment = Enum.TextXAlignment.Center
-        hpLbl.Parent = row
-        addFont(hpLbl)
-
-        local distLbl = Instance.new("TextLabel")
-        distLbl.Size = UDim2.new(0, 64, 1, 0); distLbl.Position = UDim2.new(1, -68, 0, 0)
-        distLbl.BackgroundTransparency = 1
-        distLbl.Text = dist .. " studs"
-        distLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-        distLbl.TextSize = 10
-        distLbl.TextXAlignment = Enum.TextXAlignment.Right
-        distLbl.Parent = row
-        addFont(distLbl)
-    end
-end
-
-refreshPlayersOnline()
-
-Players.PlayerAdded:Connect(function()
-    task.wait(1)
-    refreshPlayersOnline()
-end)
-Players.PlayerRemoving:Connect(function()
-    task.wait(0.1)
-    refreshPlayersOnline()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(1)
-        if main.Visible and helpTab.Visible then
-            refreshPlayersOnline()
-        end
-    end
-end)
-
 -- ===================== MUSIC TAB =====================
 local MUSIC_LIST = {
     { name = "Clair de Lune",  id = "1838457617" },
     { name = "Stadium Rave",   id = "1846368080" },
     { name = "Raining Tacos",  id = "142376088" },
-    { name = "Egg Hunt",       id = "4711747696" },
     { name = "Relaxed Scene",  id = "1848354536" },
     { name = "Crab Rave",      id = "5410086218" },
     { name = "Chill Jazz",     id = "1845341094" },
@@ -2597,46 +2550,6 @@ for _, song in ipairs(MUSIC_LIST) do
     end)
 end
 
-makeSectionHeader(musicTab, "CUSTOM ID")
-
-local customRow = Instance.new("Frame")
-customRow.Size = UDim2.new(1, 0, 0, 36); customRow.BorderSizePixel = 0; customRow.Parent = musicTab
-addBtn(customRow)
-local crc = Instance.new("UICorner"); crc.CornerRadius = UDim.new(0, 6); crc.Parent = customRow
-
-local customLbl = Instance.new("TextLabel")
-customLbl.Size = UDim2.new(1, -24, 0, 14); customLbl.Position = UDim2.new(0, 12, 0, 2)
-customLbl.BackgroundTransparency = 1; customLbl.Text = "Paste audio ID"
-customLbl.TextSize = 11
-customLbl.TextXAlignment = Enum.TextXAlignment.Left
-customLbl.Parent = customRow
-addText(customLbl); addFont(customLbl)
-
-local customIdBox = Instance.new("TextBox")
-customIdBox.Size = UDim2.new(1, -24, 0, 16); customIdBox.Position = UDim2.new(0, 12, 0, 18)
-customIdBox.BackgroundColor3 = Theme.Background; customIdBox.BorderSizePixel = 0
-customIdBox.PlaceholderText = "e.g. 1838457617"
-customIdBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
-customIdBox.TextColor3 = Theme.Text; customIdBox.TextSize = 11
-customIdBox.TextXAlignment = Enum.TextXAlignment.Left; customIdBox.ClearTextOnFocus = false
-customIdBox.Parent = customRow
-addFont(customIdBox)
-local cibc = Instance.new("UICorner"); cibc.CornerRadius = UDim.new(0, 4); cibc.Parent = customIdBox
-local cipad = Instance.new("UIPadding")
-cipad.PaddingLeft = UDim.new(0, 6); cipad.PaddingRight = UDim.new(0, 6); cipad.Parent = customIdBox
-
-makeWideBtn(musicTab, "Play Custom ID", function()
-    local raw = customIdBox.Text
-    if not raw or raw == "" then return end
-    local clean = raw:gsub("%s", "")
-    local id = clean:match("(%d+)")
-    if id then
-        if musicVolumes[id] == nil then musicVolumes[id] = 0.5 end
-        playMusic(id)
-        nowPlayingLbl.Text = "Now playing: custom [" .. id .. "]"
-    end
-end)
-
 makeSectionHeader(musicTab, "VOLUME")
 
 makeSlider(musicTab, "Music Volume", 0, 1,
@@ -2645,16 +2558,6 @@ makeSlider(musicTab, "Music Volume", 0, 1,
         if currentMusicSound then currentMusicSound.Volume = v end
         if currentMusicId then musicVolumes[currentMusicId] = v end
     end, false, nil, true)
-
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-    if isBinding then return end
-    if Config.HelpGuis.OverlayBind and input.KeyCode == Config.HelpGuis.OverlayBind then
-        setOverlayEnabled(not HelpGuis.OverlayEnabled)
-        syncAll()
-    end
-end)
 
 local menuOpen = true
 local function setMenuOpen(state) menuOpen = state; main.Visible = state end
@@ -2669,6 +2572,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.F1 then setMenuOpen(not menuOpen) end
 end)
 
-print("[DokooHub by Dokoo2] Loaded. F1 to toggle menu, F2 to toggle stats overlay.")
+print("[DokooHub by Dokoo2] Loaded. F1 to toggle menu.")
 
 showNotification("DokooHub", "Script successfully loaded", 5, false)
